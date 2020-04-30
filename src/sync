@@ -16,7 +16,7 @@ function init {
     if [ -d "$1/.sync" ]; then
         echo "Le dossier est déjà synchronisé."
     else
-        init_path=get_lib init
+        init_path=$(get_lib init)
         $($init_path $1)
     fi
 }
@@ -34,18 +34,22 @@ function add {
     if [ "$distant" != "" ]; then
         if [ -d $2 ]; then
             if [ -d "$distant/.sync" ]; then
-                echo "Clonage en cours ..."
-
                 # On initialise le dossier et on met à jour le distant
                 init $local
                 echo $distant > $local/.sync/remote
                 echo $local > $distant/.sync/remote
 
+                echo "Initialisation du dossier terminée."
+
                 # On copie les fichiers
                 clone_path=$(get_lib clone)
                 $($clone_path $distant $local)
 
-                echo "Clonage terminé."
+                echo "Clonage du dossier mirroir terminé."
+
+                # On synchronise les deux dossiers entre eux pour mettre à jour les dates
+
+                # TODO
             else
                 echo "Le dossier spécifié n'est pas initialisé."
             fi
@@ -57,8 +61,20 @@ function add {
     fi
 }
 
-function diff {
+function update_journal {
+    journal_path=$(get_lib journal)
+    $($journal_path $1)
+}
+
+function sync {
+    local=$PWD
+    distant=$(cat $local/.sync/remote)
+
+    sync_path=$(get_lib sync)
+    $($sync_path $local $distant)
     
+    update_journal $local
+    update_journal $distant
 }
 
 function main {
@@ -72,8 +88,8 @@ function main {
         exit
     fi
 
-    if [ $command == 'diff' ]; then
-        diff $2
+    if [ $command == 'sync' ]; then
+        sync
         exit
     fi
 

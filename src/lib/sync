@@ -1,0 +1,55 @@
+#!/bin/bash
+
+function conflit {
+    echo "[WARN] $1 et $2 sont en conflits"
+}
+
+function synchronize {
+    for fichier in $(ls $1)
+    do
+        if [ $fichier != '.sync' ]; then
+            if [[ -d $1/$fichier && -f $2/$fichier ]]; then
+                conflit $1/$fichier $2/$fichier
+            elif [[ -f $1/$fichier && -d $2/$fichier ]]; then
+                conflit $1/$fichier $2/$fichier
+            elif [[ -d $1/$fichier && -d $2/$fichier ]]; then
+                synchronize $1/$fichier $2/$fichier
+            elif [[ -f $1/$fichier && -f $2/$fichier ]]; then
+
+                # Si $1/$fichier et $2/$fichier sont pas conformes
+                #   Si les fichiers sont identiques (meta donnees, size, etc...)
+                #       Pas de CONFLIT
+                #   Sinon
+                #       CONFLIT
+                #   FinSi
+                # Sinon Si $1/$fichier est conforme au journal
+                #   supprimer $1/$fichier
+                #   copier $2/$fichier vers $1/$fichier
+                # Sinon
+                #   supprimer $2/$fichier
+                #   copier $1/$fichier vers $2/$fichier
+                # FinSi
+
+            else
+
+                # Un des deux fichier n'existe pas
+                # Soit l'un a été créé, soit l'autre a été supprimé
+
+                # Si $1/$fichier existe et n'est pas au journal
+                #   copier $1/$fichier vers $2/$fichier
+                # Sinon Si $2/$fichier existe et n'est pas au journal
+                #   copier $1/$fichier vers $2/$fichier
+                # Sinon Si $1/$fichier n'existe pas et est au journal
+                #   supprimer $2/$fichier
+                # Sinon Si $2/$fichier n'existe pas et est au journal
+                #   supprimer $1/$fichier
+                # FinSi
+                
+            fi
+        fi
+    done
+}
+
+if [ $# -eq 2 ]; then
+    synchronize $@
+fi

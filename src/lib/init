@@ -7,5 +7,7 @@ if [ -e $1 ]; then
     if [ ! -d "$1/.sync" ]; then
         mkdir $1/.sync
         touch $1/.sync/remote
+        touch $1/.sync/files
+        touch $1/.sync/directories
     fi
 fi

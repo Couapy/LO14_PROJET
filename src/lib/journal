@@ -1,0 +1,27 @@
+#!/bin/bash
+
+function clone {
+    for fichier in $(ls $1)
+    do
+        if [ $fichier != '.sync' ]; then
+            if [ -d $1/$fichier ]; then
+                date=$(stat -c %Z $1/$fichier)
+                echo "$1/$fichier---$date" >> $directories
+                clone $1/$fichier
+            else
+                date=$(stat -c %Z $1/$fichier)
+                echo "$1/$fichier---$date" >> $files 
+            fi
+        fi
+    done
+}
+
+if [ $# -eq 1 ]; then
+    directories=$1/.sync/directories
+    files=$1/.sync/files
+
+    truncate -s 0 $directories
+    truncate -s 0 $files
+
+    clone $@
+fi
