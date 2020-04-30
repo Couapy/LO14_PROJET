@@ -1,0 +1,24 @@
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+    echo "Ce script attend un argument"
+    command="help"
+else
+    command=$1
+fi
+
+function main {
+    # Les Commandes
+    # - update
+    # - sync
+    # - help
+    if [ $command == "update" ]; then
+        echo "Update"
+    else
+        echo "Cette option n'existe pas."
+        # Afficher l'aide
+    fi
+}
+
+# On lance le script
+main
