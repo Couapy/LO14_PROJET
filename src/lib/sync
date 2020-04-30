@@ -16,11 +16,28 @@ function synchronize {
                 synchronize $1/$fichier $2/$fichier
             elif [[ -f $1/$fichier && -f $2/$fichier ]]; then
 
-                # Si $1/$fichier et $2/$fichier sont pas conformes
-                #   Si les fichiers sont identiques (meta donnees, size, etc...)
+                if [ $(md5sum $1/$fichier) == $(md5sum $2/$fichier) ]; then
+
+                elif [ 1 -eq 1]; then
+
+                elif []; then
+
+                else
+                    rm $2/$fichier
+
+                fi
+
+                # Si $1/$fichier et $2/$fichier sont pas conformes (md5sum par rapport au journal)
+                #   Si les fichiers sont identiques (md5 entre les deux fichiers)
                 #       Pas de CONFLIT
-                #   Sinon
+                #       Mise à jour du journal => non car fait juste après =)
+                #   sinon si $1/$fichier et $2/$fichier sont pas conformes au journal en terme de date
                 #       CONFLIT
+                #       soit en supprimant l'un des deux soit en gardant les 2 en ajoutant une particule (demande utilisateur)
+                #   sinon si $1/fichier est conforme au journal
+                #       remplacer $1/fichier par $2/fichier
+                #   sinon si $2/fichier est conforme au journal
+                #       remplacer $2/fichier par $1/fichier
                 #   FinSi
                 # Sinon Si $1/$fichier est conforme au journal
                 #   supprimer $1/$fichier
@@ -44,7 +61,7 @@ function synchronize {
                 # Sinon Si $2/$fichier n'existe pas et est au journal
                 #   supprimer $1/$fichier
                 # FinSi
-                
+
             fi
         fi
     done

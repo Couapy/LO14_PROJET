@@ -1,0 +1,9 @@
+if [ md5sum(A/fichier) != md5sum(B/fichier) ]; then
+    if [ A/fichier -nt B/fichier ]; then
+        # A plus récent
+    else
+        # B plus récent
+    fi
+else
+    # Identiques
+fi
