@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Ce fichier permet de cloner un dossier vers un autre,
+# sans prendre en compte le dossier .sync utilisé par 
+# cet utilitaire.
+
+function clone {
+    for fichier in $(ls $1)
+    do
+        if [ $fichier != '.sync' ]; then
+            if [ -d $1/$fichier ]; then
+                if [ ! -d $2/$fichier ]; then
+                    mkdir $2/$fichier
+                fi
+                clone $1/$fichier $2/$fichier
+            else
+                if [ ! -f $2/$fichier ]; then
+                    cp $1/$fichier $2/$fichier
+                fi
+            fi
+        fi
+    done
+}
+
+if [ $# -eq 2 ]; then
+    clone $@
+fi

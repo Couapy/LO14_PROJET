@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Ce fichier permet d'initialiser un dossier, et de le
+# préparer pour le synchronniser.
+
+if [ -e $1 ]; then
+    if [ ! -d "$1/.sync" ]; then
+        mkdir $1/.sync
+        touch $1/.sync/remote
+    fi
+fi

@@ -1,0 +1,19 @@
+== AIDE ==
+Cet outil *sync* permet de synchroniser deux dossier au sein d'un même système.
+
+=== Commandes disponibles ===
+
+# init
+Cette commande permet d'initialiser un dossier pour le synchroniser
+
+# add dossier_distant
+Cette commande permet de commencer à synchroniser un dossier vide à partir d'un autre dossier
+
+# diff
+Cette commande permet d'afficher les différences par rapport au dossier mirroir
+
+# sync
+Cette command permet de synchroniser le dossier avec le dossier mirroir
+
+# help
+Cette commande affiche cette aide

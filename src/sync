@@ -1,24 +1,85 @@
 #!/bin/bash
 
 if [ $# -eq 0 ]; then
-    echo "Ce script attend un argument"
+    echo "Ce script attend un argument."
     command="help"
 else
     command=$1
 fi
 
-function main {
-    # Les Commandes
-    # - update
-    # - sync
-    # - help
-    if [ $command == "update" ]; then
-        echo "Update"
+function get_lib {
+    clone_path=$(dirname $0)
+    echo $clone_path/lib/$1
+}
+
+function init {
+    if [ -d "$1/.sync" ]; then
+        echo "Le dossier est déjà synchronisé."
     else
-        echo "Cette option n'existe pas."
-        # Afficher l'aide
+        init_path=get_lib init
+        $($init_path $1)
     fi
 }
 
-# On lance le script
-main
+function add {
+    if [ $(ls | wc -c) -ne 0 ]; then
+        ls
+        echo "Le dossier actuel n'est pas vide."
+        exit
+    fi
+
+    local=$PWD
+    distant=$(readlink -f $1)
+
+    if [ "$distant" != "" ]; then
+        if [ -d $2 ]; then
+            if [ -d "$distant/.sync" ]; then
+                echo "Clonage en cours ..."
+
+                # On initialise le dossier et on met à jour le distant
+                init $local
+                echo $distant > $local/.sync/remote
+                echo $local > $distant/.sync/remote
+
+                # On copie les fichiers
+                clone_path=$(get_lib clone)
+                $($clone_path $distant $local)
+
+                echo "Clonage terminé."
+            else
+                echo "Le dossier spécifié n'est pas initialisé."
+            fi
+        else
+            echo "Le dossier spécifié n'existe pas."
+        fi
+    else
+        echo "Veuillez transmettre le dossier à synchroniser en argument."
+    fi
+}
+
+function diff {
+    
+}
+
+function main {
+    if [ $command == "init" ]; then
+        init .
+        exit
+    fi
+
+    if [ $command == "add" ]; then
+        add $2
+        exit
+    fi
+
+    if [ $command == 'diff' ]; then
+        diff $2
+        exit
+    fi
+
+    # On affiche l'aide ici
+    src=$(dirname $0)
+    cat $src/help
+}
+
+main $@
