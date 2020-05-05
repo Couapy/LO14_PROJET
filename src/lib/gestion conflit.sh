@@ -89,11 +89,6 @@ then
         fi
 
         else
-            echo "Veuillez entrer un choix valide: "
-            read choix
-        fi
-
-        else
             echo "Choix non valide."
         fi
 
