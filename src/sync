@@ -1,85 +1,71 @@
 #!/bin/bash
 
-if [ $# -eq 0 ]; then
-    echo "Ce script attend un argument."
-    command="help"
-else
-    command=$1
-fi
-
+# Retourne le chemin d'un module
+#
+# $1 nom du module
 function get_lib {
     clone_path=$(dirname $0)
     echo $clone_path/lib/$1
 }
 
+# Initialise la synchronisation entre les dossier
+#
+# $1 chemin vers le nouveau dossier à cloner
 function init {
-    if [ -d "$1/.sync" ]; then
-        echo "Le dossier est déjà initialisé."
-    else
-        init_path=$(get_lib init)
-        $($init_path $1)
-    fi
-}
-
-function add {
-    if [ $(ls | wc -c) -ne 0 ]; then
-        echo "Le dossier actuel n'est pas vide."
-        exit
-    fi
-
     local=$PWD
     distant=$(readlink -f $1)
+    if ! [ -d $distant ]; then
+        if [ "$(echo "${distant}/" | egrep "^(${local}/)")" = "" ]; then
+            if ! [ -d $local/.sync ]; then
+                echo "[INFO] Initialisation en cours..."
 
-    if [ "$distant" != "" ]; then
-        if [ -d $distant ]; then
-            if [ -d "$distant/.sync" ]; then
-                # On initialise le dossier et on met à jour le distant
-                init $local
+                # Copie des fichiers
+                cp -pr $local $distant
+                # On créé un .sync dans les deux dossies
+                #   Génère le journal dans les deux dossiers
+                journal_path=$(get_lib journal)
+                journal=$($journal_path get $local)
+
+                mkdir $local/.sync
+                echo journal > $local/.sync/journal
+
+                cp -r $local/.sync $distant/.sync
+
+                #   Génère le fichier remote dans les deux dossiers
                 echo $distant > $local/.sync/remote
                 echo $local > $distant/.sync/remote
 
-                echo "Initialisation du dossier terminée."
-
-                # On copie les fichiers
-                clone_path=$(get_lib clone)
-                $($clone_path $distant $local)
-
-                echo "Clonage du dossier mirroir terminé."
+                echo "[INFO] Initialisation terminé..."
             else
-                echo "Le dossier spécifié n'est pas initialisé."
+                echo "[ERR] Le dossier actuel est déjà synchronisé."
             fi
         else
-            echo "Le dossier spécifié n'existe pas."
+            echo "[ERR] Le dossier distant se trouve dans le dossier à cloner."
         fi
     else
-        echo "Veuillez transmettre le dossier à synchroniser en argument."
+        echo "[ERR] Le dossier ${distant} existe déjà."
     fi
-}
-
-function update_journal {
-    journal_path=$(get_lib journal)
-    $($journal_path $1)
 }
 
 function sync {
-    local=$PWD
-    distant=$(cat $local/.sync/remote)
+    date
+    # local=$PWD
+    # distant=$(cat $local/.sync/remote)
 
-    sync_path=$(get_lib sync)
-    $($sync_path $local $distant)
+    # sync_path=$(get_lib sync)
+    # $($sync_path $local $distant)
     
-    update_journal $local
-    update_journal $distant
+    # update_journal $local
+    # update_journal $distant
 }
 
+# Fonction main du projet
+#
+# $1 commande à executer
+# $... arguments de la commande
 function main {
     if [ $command == "init" ]; then
-        init .
-        exit
-    fi
-
-    if [ $command == "add" ]; then
-        add $2
+        init $2
         exit
     fi
 
@@ -93,4 +79,10 @@ function main {
     cat $src/help
 }
 
+if [ $# -eq 0 ]; then
+    echo "Ce script attend un argument."
+    command="help"
+else
+    command=$1
+fi
 main $@

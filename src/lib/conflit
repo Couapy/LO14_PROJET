@@ -1,93 +1,102 @@
 #!/bin/bash
 
+###### appelle au fonction
+###### le fait que $1 et $2 soit chemin/fichier avec dirname/basename.
+
 ### $1, nom du fichier qui pose problème
 ### $2 type de conflit
 
 ### Déclaration d'un nouveau nom
 function name_change {
-        tag2=1
-        while [ tag2 -eq 1 ];
-        do 
+        continuer=1
+        while [ continuer -eq 1 ];
+        do
             echo "Nouveau nom : "
             read new_name
             if [ -e new_name];
             then
                 echo "Ce nom est déjà attribué à un autre fichier ou répertoire. \n"
-                
-            else 
-                tag2=0
+            else
+                continuer=0
             fi
-        done 
+        done
     return new_name
 }
 
 ### Ecrase le fichier de la machine distante par celui se trouvant sur le pc (cas 1)
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
+# $3 phrase prompt
 function delete_distant {
         echo "Etes-vous sûr de vouloir écraser la version disponible sur le pc distant (oui / non) : "
         read verification
-        tag2=1
-        while [ tag2 -eq 1 ];
+        continuer=1
+        while [ continuer -eq 1 ];
         do 
             if [ verification == "oui" ];
             then 
                 ### cp $1 vers path+$1
-                tag=0
-                tag2=0
-                 
+                resolu=0
+                continuer=0
             else if [ verification == "non" ];
-            
-                tag2=0
-                tag=1
-
+                resolu=1
+                continuer=0
             else
                 echo "Veuillez entrer oui ou non :"
                 read verification
             fi 
         done 
 
-    return tag        
+    return resolu        
 }
 
 ### Ecrase le fichier se trouvant sur le pc par celui de la machine distante (cas 1)
 function delete_host {
         echo "Etes-vous sûr de vouloir écraser la version disponible sur ce pc (oui / non) : "
-         read verification
-        tag2=1
-        while [ tag2 -eq 1 ];
+        read verification
+        continuer
+        while [ continuer -eq 1 ];
         do 
             if [ verification == "oui" ];
             then 
                 ### cp path+$1 vers $1
-                tag=0
-                tag2=0
+                resolu=0
+                continuer=0
                 
 
             else if [ verification == "non" ];
-                tag2=0
-                
+                continuer=0
+                resolu=1
 
             else
                 echo "Veuillez entrer oui ou non :"
                 read verification
             fi 
         done 
-    return tag   
+    return resolu   
 }
 
 ### Sauvegarde des deux fichier en changeant le nom de l'un d'eux (cas 1)
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
 function double_save {
-    
-    new_name=name_change
-    cp $1 $new_name ### changement de nom dans l'ordi
-    cp $new_name ### path+new_name pour en faire la copie dans le distant
-    cp ### path+$1 vers $1
+    new_name=$(name_change) # On renomme obligatoirement le fichier local
+    file_path_local=$(dirname $1) # chemin vers le fichier > /path/dir/sync
+    file_name_local=$(basename $1) # nom du fichier > fichier
+    file_path_distant=$(dirname $2) # chemin vers le fichier > /path/dir/sync
+    file_name_distant=$(basename $2) # nom du fichier > fichier
 
-    tag=0
+    cp $file_path_local/$filename $file_path_local/$new_name ### changement de nom dans l'ordi
+    cp $file_path_local/$new_name $file_path_distant/$new_name ### path+new_name pour en faire la copie dans le distant
+    cp $file_path_distant/$new_name $file_path_local/$
+    resolu=0
 
-    return tag
+    return resolu
 }
 
 ### Changement du nom du fichier (cas 2)
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
 function file_name_change {
     ### Cherche lequel est le fichier ou le répertoire : -d test si répertoire
         if [ -d $1];
@@ -100,11 +109,13 @@ function file_name_change {
             cp $2 ### path+$2
             cp ### path+$1 $1
         fi
-        tag=0
-    return tag
+        resolu=0
+    return resolu
 }
 
 ### Changement du nom du répertoire (cas2)
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
 function repertory_name_change {
     ### Cherche lequel est le fichier ou le répertoire : -f test si fichier "ordinaire"
         if [ -f $1];
@@ -117,18 +128,17 @@ function repertory_name_change {
             cp $2 ### path+$2
             cp ### path+$1 $1
         fi
-        tag=0
-    return tag  
+        resolu=0
+    return resolu  
 }
 
 ### Main script
-
 function conflit {
     ### Selection du type de conflit : choix 1 --> Les deux fichiers ont été modifié depuis la dernière synchro.
     if [ $2 -eq 1 ];
     then
-        tag=1
-        while [ tag -eq 1 ];
+        resolu=1
+        while [ resolu -eq 1 ];
         do
             ### Proposition de choix pour utilisateur
             echo "Les deux fichiers $1 ont été modifié depuis la dernière synchronisation."
@@ -138,16 +148,16 @@ function conflit {
             ### Choix : on garde les deux donc on change un des noms
             if [ choix -eq 1 ];
             then 
-                tag=name_change $1
+                resolu=name_change $1
 
             ### On ecrase sur le pc distant
             else if [ choix -eq 2 ];
 
-                tag=delete_distant $1
+                resolu=delete_distant $1
                 
             ### On écrase sur le pc qui lance le sync
             else if [ choix -eq 3 ];
-                tag=delete_host $1
+                resolu=delete_host $1
 
             else
                 echo "Choix non valide."
@@ -157,8 +167,8 @@ function conflit {
 
     ### Sélection du type de conflit : choix 2 --> un fichier à le même nom qu'un répertoire
     else if [ $2 -eq 2 ];
-        tag=1
-        while [ tag -eq 1 ];
+        resolu=1
+        while [ resolu -eq 1 ];
         do
             ### Proposition de choix pour l'utilisateur
             echo "Un fichier à le même nom qu'un répertoire. Changer le nom du :\n 1 - fichier \n 2 - répertoire"
@@ -169,10 +179,10 @@ function conflit {
             ### On change le nom du fichier
             if [ choix -eq 1 ];
             then 
-                tag=file_name_change $1 $new_name
+                resolu=file_name_change $1 $new_name
 
             else if [ choix -eq 2];
-                tag=repertory_name_change $1 $new_name
+                resolu=repertory_name_change $1 $new_name
 
             else
                 echo " Choix invalide!"
@@ -187,5 +197,4 @@ function conflit {
     fi           
 }
 
-
-
+conflit $@
