@@ -1,3 +1,4 @@
+#!/bin/bash
 
 ### $1, nom du fichier qui pose problème
 ### $2 type de conflit
