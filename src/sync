@@ -50,7 +50,7 @@ function diff {
     journal_path=$(get_lib journal)
     resultat=$($journal_path diff $PWD)
     if [ "$resultat" != "" ]; then
-        echo $'[INFO] Les modifications suivantes ont été faites :\n'
+        echo '[INFO] Les modifications suivantes ont été faites :'
         for ligne in $resultat
         do
             echo $ligne
@@ -60,10 +60,29 @@ function diff {
     fi
 }
 
+# Cette fonction permet de mettre à jour le
 function sync {
-    echo "[INFO] Synchronisation en cours..."
-    sleep 2
-    echo "[INFO] Synchronisation terminée."
+    if [ -d $PWD/.sync ]; then
+        local=$PWD
+        distant=$(cat $local/.sync/remote)
+
+        echo "[INFO] Synchronisation en cours..."
+
+        # S'il n'y a pas de confltits dans les deux sens
+        sync_path=$(get_lib sync)
+        conflits=$($sync_path conflits $local)
+        if [[ $($sync_path conflits $local) -eq 0 && $($sync_path conflits $distant) -eq 0 ]]; then
+
+            # Effectuer les mise à jour à partir des fichiers diff
+            # TODO
+
+            echo "[INFO] Synchronisation terminée."
+        else
+            echo "[ERR] Des conflits n'ont pas été résolus."
+        fi
+    else
+        echo "[ERR] Ce dossier n'est pas synchronisé."
+    fi
 }
 
 # Fonction main du projet

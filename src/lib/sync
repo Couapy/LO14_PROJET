@@ -1,72 +1,76 @@
 #!/bin/bash
 
-function conflit {
-    echo "[WARN] $1 et $2 sont en conflits"
+# Cette fonction retourne le chemin relatif d'un module du projet
+function get_lib {
+    echo "$(dirname $0)/$1"
 }
 
-function synchronize {
-    for fichier in $(ls $1)
+# Cette fonction détecte les conflits
+#
+# Attention elle va uniquement dans un sens (local -> distant)
+# et nécéssite un autre appel qui fera (distant -> local)
+#
+# $1 dossier synchronisé
+function detecter_conflit {
+    local=$1
+    distant=$(cat $1/.sync/remote)
+
+    journal_path=$(get_lib journal)
+    conflits=""
+
+    # On génère les différences
+    diff_local_path="${local}/.sync/diff"
+    $journal_path diff $local > $diff_local_path
+    diff_distant_path="${distant}/.sync/diff"
+    $journal_path diff $distant > $diff_distant_path
+
+    for diff in $(cat $diff_local_path)
     do
-        if [ $fichier != '.sync' ]; then
-            if [[ -d $1/$fichier && -f $2/$fichier ]]; then
-                conflit $1/$fichier $2/$fichier
-            elif [[ -f $1/$fichier && -d $2/$fichier ]]; then
-                conflit $1/$fichier $2/$fichier
-            elif [[ -d $1/$fichier && -d $2/$fichier ]]; then
-                synchronize $1/$fichier $2/$fichier
-            elif [[ -f $1/$fichier && -f $2/$fichier ]]; then
-
-                if [ $(md5sum $1/$fichier) == $(md5sum $2/$fichier) ]; then
-
-                elif [ 1 -eq 1]; then
-
-                elif []; then
-
+        status=$(echo $diff | cut -d"#" -f1)
+        fichier=$(echo $diff | cut -d"#" -f2)
+        # Les fichiers créés
+        if [ "$status" == "ADD" ]; then
+            # Si le fichier a été créé dans les deux dossiers
+            if [ "$(cat $diff_distant_path | egrep "^(ADD|${fichier})")" != "" ]; then
+                # Si le fichier a le même nom qu'un dossier
+                if [[ (-f $local/$fichier && -d $distant/$fichier) || (-d $local/$fichier && -f $distant/$fichier) ]]; then
+                    echo "FichierMemeNomQueDossier>${fichier}"
+                # Si les fichiers ne sont pas identiques
                 else
-                    rm $2/$fichier
-
+                    if [ "$(md5sum $local/$fichier)" != "$(md5sum $distant/$fichier)"]; then
+                        echo "DeuxFichiersCreesMemeContents>${fichier}"
+                    else
+                        echo "DeuxFichiersCrees>${fichier}"
+                    fi
                 fi
-
-                # Si $1/$fichier et $2/$fichier sont pas conformes (md5sum par rapport au journal)
-                #   Si les fichiers sont identiques (md5 entre les deux fichiers)
-                #       Pas de CONFLIT
-                #       Mise à jour du journal => non car fait juste après =)
-                #   sinon si $1/$fichier et $2/$fichier sont pas conformes au journal en terme de date
-                #       CONFLIT
-                #       soit en supprimant l'un des deux soit en gardant les 2 en ajoutant une particule (demande utilisateur)
-                #   sinon si $1/fichier est conforme au journal
-                #       remplacer $1/fichier par $2/fichier
-                #   sinon si $2/fichier est conforme au journal
-                #       remplacer $2/fichier par $1/fichier
-                #   FinSi
-                # Sinon Si $1/$fichier est conforme au journal
-                #   supprimer $1/$fichier
-                #   copier $2/$fichier vers $1/$fichier
-                # Sinon
-                #   supprimer $2/$fichier
-                #   copier $1/$fichier vers $2/$fichier
-                # FinSi
-
-            else
-
-                # Un des deux fichier n'existe pas
-                # Soit l'un a été créé, soit l'autre a été supprimé
-
-                # Si $1/$fichier existe et n'est pas au journal
-                #   copier $1/$fichier vers $2/$fichier
-                # Sinon Si $2/$fichier existe et n'est pas au journal
-                #   copier $1/$fichier vers $2/$fichier
-                # Sinon Si $1/$fichier n'existe pas et est au journal
-                #   supprimer $2/$fichier
-                # Sinon Si $2/$fichier n'existe pas et est au journal
-                #   supprimer $1/$fichier
-                # FinSi
-
+            fi
+        # Les fichiers supprimés
+        elif [ "$status" == "REM" ]; then
+            # Si le fichier a été supprimé et modifié dans les deux dossiers
+            if [ "$(cat $diff_distant_path | egrep "^(MOD#${fichier})")" != "" ]; then
+                echo "SuppEtMod>${fichier}"
+            fi
+        # Les fichiers modifiés
+        elif [ "$status" == "MOD" ]; then
+            # Si les deux fichiers ont été édités
+            if [ "$(cat $diff_distant_path | egrep "^(MOD#${fichier})")" != "" ]; then
+                echo "DeuxModDiff>${fichier}"
             fi
         fi
     done
 }
 
-if [ $# -eq 2 ]; then
-    synchronize $@
+
+if [ $# -gt 1 ]; then
+    if [ $1 == 'conflits' ]; then
+        detecter_conflit $2
+        exit
+    fi
+
+    if [ $1 == 'sync' ]; then
+        date
+        exit
+    fi
+else
+    echo "[ERR] Veuillez transmettre au moins un argument."
 fi
