@@ -1,7 +1,5 @@
 #!/bin/bash
 
-###### appelle au fonction
-###### le fait que $1 et $2 soit chemin/fichier avec dirname/basename.
 
 ### $1, nom du fichier qui pose problème
 ### $2 type de conflit
@@ -23,43 +21,23 @@ function name_change {
     return new_name
 }
 
-### Ecrase le fichier de la machine distante par celui se trouvant sur le pc (cas 1)
-# $1 chemin vers le fichier en conflit local
-# $2 chemin vers le fichier en conflit distant
-# $3 phrase prompt
-function delete_distant {
-        echo "Etes-vous sûr de vouloir écraser la version disponible sur le pc distant (oui / non) : "
-        read verification
-        continuer=1
-        while [ continuer -eq 1 ];
-        do 
-            if [ verification == "oui" ];
-            then 
-                ### cp $1 vers path+$1
-                resolu=0
-                continuer=0
-            else if [ verification == "non" ];
-                resolu=1
-                continuer=0
-            else
-                echo "Veuillez entrer oui ou non :"
-                read verification
-            fi 
-        done 
-
-    return resolu        
-}
 
 ### Ecrase le fichier se trouvant sur le pc par celui de la machine distante (cas 1)
-function delete_host {
-        echo "Etes-vous sûr de vouloir écraser la version disponible sur ce pc (oui / non) : "
+# $1 chemin vers le fichier qui va être écrasé
+# $2 chemin vers le fichier en qui va être garder
+# $3 phrase prompt
+function delete {
+        path_delete=$(dirname $1)
+        path_save=$(dirname $2)
+        name=$(basename $2)
+        echo "$3"
         read verification
         continuer
         while [ continuer -eq 1 ];
         do 
             if [ verification == "oui" ];
             then 
-                ### cp path+$1 vers $1
+                cp $path_save/$name $path_delete/$name
                 resolu=0
                 continuer=0
                 
@@ -82,13 +60,13 @@ function delete_host {
 function double_save {
     new_name=$(name_change) # On renomme obligatoirement le fichier local
     file_path_local=$(dirname $1) # chemin vers le fichier > /path/dir/sync
-    file_name_local=$(basename $1) # nom du fichier > fichier
+    file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
     file_path_distant=$(dirname $2) # chemin vers le fichier > /path/dir/sync
-    file_name_distant=$(basename $2) # nom du fichier > fichier
+    
 
-    cp $file_path_local/$filename $file_path_local/$new_name ### changement de nom dans l'ordi
+    cp $file_path_local/$file_name $file_path_local/$new_name ### changement de nom dans l'ordi
     cp $file_path_local/$new_name $file_path_distant/$new_name ### path+new_name pour en faire la copie dans le distant
-    cp $file_path_distant/$new_name $file_path_local/$
+    cp $file_path_distant/$file_name $file_path_local/$file_name
     resolu=0
 
     return resolu
@@ -97,17 +75,21 @@ function double_save {
 ### Changement du nom du fichier (cas 2)
 # $1 chemin vers le fichier en conflit local
 # $2 chemin vers le fichier en conflit distant
+# $3 Nouveau nom du fichier
 function file_name_change {
+    file_path_local=$(dirname $1) # chemin vers le fichier > /path/dir/sync
+    file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
+    file_path_distant=$(dirname $2) # chemin vers le fichier > /path/dir/sync
     ### Cherche lequel est le fichier ou le répertoire : -d test si répertoire
         if [ -d $1];
         then
-            mv ### path+$1 path+$2
-            cp $1 ### path+$1
-            cp ### path+$2 $2
+            mv $file_path_distant/$file_name $file_path_distant/$3 
+            cp $file_path_local/$file_name $file_path_distant/$file_name
+            cp $file_path_distant/$3 $file_name/$3
         else 
-            mv $1 $2
-            cp $2 ### path+$2
-            cp ### path+$1 $1
+            mv $file_path_local/$file_name $file_path_local/$3
+            cp $file_path_local/$3 $file_path_distant/$3
+            cp $file_path_distant/$file_name $file_path_local/$file_path_distant
         fi
         resolu=0
     return resolu
@@ -116,17 +98,22 @@ function file_name_change {
 ### Changement du nom du répertoire (cas2)
 # $1 chemin vers le fichier en conflit local
 # $2 chemin vers le fichier en conflit distant
+# $3 Nouveau nom du repertoire
 function repertory_name_change {
+    file_path_local=$(dirname $1) # chemin vers le fichier > /path/dir/sync
+    file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
+    file_path_distant=$(dirname $2) # chemin vers le fichier > /path/dir/sync
     ### Cherche lequel est le fichier ou le répertoire : -f test si fichier "ordinaire"
         if [ -f $1];
         then
-            mv ### path+$1 path+$2
-            cp $1 ### path+$1
-            cp ### path+$2 $2
+            mv $file_path_distant/$file_name $file_path_distant/$3
+            cp $file_path_local/$file_name $file_path_distant/$file_name
+            cp $file_path_distant/$3 $file_name/$3
         else 
-            mv $1 $2
-            cp $2 ### path+$2
-            cp ### path+$1 $1
+        else 
+            mv $file_path_local/$file_name $file_path_local/$3
+            cp $file_path_local/$3 $file_path_distant/$3
+            cp $file_path_distant/$file_name $file_path_local/$file_path_distant
         fi
         resolu=0
     return resolu  
@@ -137,13 +124,16 @@ function conflit {
     ### Selection du type de conflit : choix 1 --> Les deux fichiers ont été modifié depuis la dernière synchro.
     if [ $2 -eq 1 ];
     then
+        name_file=$(basename $1)
         resolu=1
         while [ resolu -eq 1 ];
         do
             ### Proposition de choix pour utilisateur
-            echo "Les deux fichiers $1 ont été modifié depuis la dernière synchronisation."
+            echo "Les deux fichiers $name_file ont été crée ou modifié depuis la dernière synchronisation."
             echo "Que voulez vous faire :\n 1 - Donner un autre nom à la version présente sur ce pc \n 2 - Ecraser la version disponible sur le pc distant \n 3 - Ecraser le fichier disponible sur ce pc "
             read choix
+            phrase_supp_distant="Etes-vous sûr de vouloir écraser la version disponible sur le pc distant (oui / non) :"
+            phrase_supp_local="Etes-vous sûr de vouloir écraser la version disponible sur ce pc (oui / non) :"
 
             ### Choix : on garde les deux donc on change un des noms
             if [ choix -eq 1 ];
@@ -153,11 +143,11 @@ function conflit {
             ### On ecrase sur le pc distant
             else if [ choix -eq 2 ];
 
-                resolu=delete_distant $1
+                resolu=$(delete $2 $1 $phrase_supp_distant)
                 
             ### On écrase sur le pc qui lance le sync
             else if [ choix -eq 3 ];
-                resolu=delete_host $1
+                resolu=$(delete $1 $2 $phrase_supp_local)
 
             else
                 echo "Choix non valide."
@@ -171,18 +161,18 @@ function conflit {
         while [ resolu -eq 1 ];
         do
             ### Proposition de choix pour l'utilisateur
-            echo "Un fichier à le même nom qu'un répertoire. Changer le nom du :\n 1 - fichier \n 2 - répertoire"
+            echo "$name_file est à la fois un ficher et un répertoire. Changer le nom du :\n 1 - fichier \n 2 - répertoire"
             read choix
 
-            new_name=name_change
+            new_name=$(name_change)
 
             ### On change le nom du fichier
             if [ choix -eq 1 ];
             then 
-                resolu=file_name_change $1 $new_name
+                resolu=$(file_name_change $1 $2 $new_name)
 
             else if [ choix -eq 2];
-                resolu=repertory_name_change $1 $new_name
+                resolu=$(repertory_name_change $1 $2 $new_name)
 
             else
                 echo " Choix invalide!"
@@ -190,7 +180,7 @@ function conflit {
         done
 
 
-    ### Sélection du type de conflit : choix 3 -->
+    ### Sélection du type de conflit : choix 3 --> # Si le fichier a été supprimé et modifié dans les deux dossiers
     else if [ $2 -eq 3];
 
 
