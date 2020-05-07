@@ -8,7 +8,7 @@ Ce fichier permet de mieux comprendre comment le projet est structuré.
   * journal
     * Contient le journal daté de la dernière synchronisation réussie
     * Chaque ligne est un fichier ou un dossier suivit de leur md5sum
-      * La chaine "-----" sépare le chemin du fichier/dossier de son md5
+      * La chaine ";" sépare le chemin du fichier/dossier de son md5
   * remote
     * Contient le chemin absolu vers le dossier distant
 * *...*

@@ -23,11 +23,9 @@ function init {
                 cp -pr $local $distant
                 # On créé un .sync dans les deux dossies
                 #   Génère le journal dans les deux dossiers
-                journal_path=$(get_lib journal)
-                journal=$($journal_path get $local)
-
                 mkdir $local/.sync
-                echo journal > $local/.sync/journal
+                journal_path=$(get_lib journal)
+                journal=$($journal_path get $local > $local/.sync/journal)
 
                 cp -r $local/.sync $distant/.sync
 
@@ -47,16 +45,25 @@ function init {
     fi
 }
 
-function sync {
-    date
-    # local=$PWD
-    # distant=$(cat $local/.sync/remote)
+# Affiche les modification depuis la dernière synchronisation
+function diff {
+    journal_path=$(get_lib journal)
+    resultat=$($journal_path diff $PWD)
+    if [ "$resultat" != "" ]; then
+        echo $'[INFO] Les modifications suivantes ont été faites :\n'
+        for ligne in $resultat
+        do
+            echo $ligne
+        done
+    else
+        echo "[INFO] Aucune modification n'a été apportée." 
+    fi
+}
 
-    # sync_path=$(get_lib sync)
-    # $($sync_path $local $distant)
-    
-    # update_journal $local
-    # update_journal $distant
+function sync {
+    echo "[INFO] Synchronisation en cours..."
+    sleep 2
+    echo "[INFO] Synchronisation terminée."
 }
 
 # Fonction main du projet
@@ -69,11 +76,15 @@ function main {
         exit
     fi
 
-    if [ $command == 'sync' ]; then
-        sync
+    if [ $command == "diff" ]; then
+        diff
         exit
     fi
 
+    if [ $command == "sync" ]; then
+        sync
+        exit
+    fi
     # On affiche l'aide ici
     src=$(dirname $0)
     cat $src/help

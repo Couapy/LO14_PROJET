@@ -2,16 +2,15 @@
 
 # Cette fonction permet de faire un arbre du dossier récursivement
 #
-# $1 dossier à lister récursivement
+# $1 racine du dossier à lister
+# $2 dossier à lister récursivement
 function browse {
-    for fichier in $(ls -A $1)
+    for fichier in $(ls -A $2)
     do
         if [ $fichier != '.sync' ]; then
-            if [ -d $1/$fichier ]; then
-                echo "${1}/${fichier}"
-                browse $1/$fichier
-            else
-                echo "${1}/${fichier}"
+            echo $2/$fichier
+            if [ -d $2/$fichier ]; then
+                browse $1 $2/$fichier
             fi
         fi
     done
@@ -21,14 +20,13 @@ function browse {
 #
 # $1 dossier synchronisé
 function journalisation {
-
-    dossier=$1
+    dossier=$(readlink -f $1)
     journal=""
     journal_path=$dossier/.sync/journal
     journal_temp=""
 
     # Faire un arbre de fichier
-    arborescence=$(browse $dossier)
+    arborescence=$(browse $dossier $dossier | sed -e "s@^$dossier/@@g")
     # Faire un journal
     for fichier in $arborescence
     do
@@ -37,12 +35,10 @@ function journalisation {
         else
             md5=""
         fi
-        journal_temp+="${fichier}---${md5}"
+        journal_temp+="${fichier};${md5}"
         journal_temp+=$'\n'
     done
     echo "$journal_temp"
-    
-
 }
 
 # Cette fonction permet de générer le rapport de synchronisation
@@ -52,12 +48,37 @@ function diff {
     dossier=$1
     if [ -d $dossier ]; then
         if [ -d $dossier/.sync ]; then
-            journal=$(cat $dossier/.sync/journal)
-            journal_actuel=$(journalisation $dossier)
-            # Faire un fichier diff
-            #   Fichiers ajoutés
-            #   Fichiers supprimés
-            #   Fichiers édités
+            journal_path=$dossier/.sync/journal
+            journal=$(cat $journal_path)
+            journal_temp=$(journalisation $dossier)
+
+            for ligne in $journal_temp
+            do
+                fichier=$(echo $ligne | cut -d';' -f1)
+                if [ "$(echo $journal | egrep "${fichier};")" = "" ]; then
+                    echo "[ADD]$fichier"
+                fi
+            done
+            for ligne in $journal
+            do
+                fichier=$(echo $ligne | cut -d';' -f1)
+                if [ "$(echo $journal_temp | egrep "${fichier};")" = "" ]; then
+                    echo "[REM]$fichier"
+                fi
+            done
+            for ligne in $journal_temp
+            do
+                fichier=$(echo $ligne | cut -d';' -f1)
+                md5=$(echo $ligne | cut -d';' -f2)
+                ligne_journal=$(cat $journal_path | grep "^${fichier};")
+                md5_journal=$(echo $ligne_journal | cut -d';' -f2)
+                # On évite les nouveaux fichiers
+                if [ "$md5_journal" != "" ]; then
+                    if [ "$md5" != "$md5_journal" ]; then
+                        echo "[MOD]$fichier"
+                    fi
+                fi
+            done
         else
             echo "[ERR] Le dossier n'est pas synchronisé."
         fi
