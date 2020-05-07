@@ -106,7 +106,7 @@ function main {
     fi
     # On affiche l'aide ici
     src=$(dirname $0)
-    cat $src/help
+    cat $src/help.md
 }
 
 if [ $# -eq 0 ]; then
