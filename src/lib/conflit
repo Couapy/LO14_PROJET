@@ -1,11 +1,13 @@
 #!/bin/bash
 
+
 ### Scinder chaque buche en une fonction paire pour raccourcir fonction principale
 ### Remplacer les else if par elif
 ### remettre les then à la ligne
 ### Revoir la mise en page [WARN] [INFO] [ERR] (optionnel)
 ### Fusionner file_name_change et repertory_name_change
 ###     Jouer sur l'ordre des arguments
+
 
 ### $1 chemin absolu du fichier local créant conflit
 ### $2 chemin absolu du fichier distant créant conflit
