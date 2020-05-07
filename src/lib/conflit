@@ -1,26 +1,43 @@
 #!/bin/bash
 
+### Scinder chaque buche en une fonction paire pour raccourcir fonction principale
+### Remplacer les else if par elif
+### remettre les then à la ligne
+### Revoir la mise en page [WARN] [INFO] [ERR] (optionnel)
+### Fusionner file_name_change et repertory_name_change
+###     Jouer sur l'ordre des arguments
+
+### $1 chemin absolu du fichier local créant conflit
+### $2 chemin absolu du fichier distant créant conflit
+### $3 cas du conflit
+# Différent cas : (le numéro indiquer correspond à la valeur de $3 dans le script principal)
+#                   1 - Les deux fichiers ont été modifié depuis la dernière synchro
+#                   2 - Un fichier à le même nom qu'un répertoire
+#                   3 - Fichier modifié en local et supprimé en distant [!!] ici $2 correspond au chemin absolu ou se trouvé le fichié supprimé distant
+#                   4 - Fichier modifié en distant et supprimé en local [!!] ici $1 correspond au chemin absolu ou se trouvé le fichié supprimé distant
+#                   5 - Deux Fichiers ont été crées avec le même nom
 
 ### $1, nom du fichier qui pose problème
 ### $2 type de conflit
 
 ### Déclaration d'un nouveau nom
+# $1 chemin absolu du fichier
 function name_change {
+        chemin=$(dirname $1)
         continuer=1
-        while [ continuer -eq 1 ];
+        while [ $continuer -eq 1 ];
         do
             echo "Nouveau nom : "
             read new_name
-            if [ -e new_name];
+            if [ -e $chemin/$new_name ];
             then
                 echo "Ce nom est déjà attribué à un autre fichier ou répertoire. \n"
             else
                 continuer=0
             fi
         done
-    return new_name
+    return $new_name
 }
-
 
 ### Ecrase le fichier se trouvant sur le pc par celui de la machine distante (cas 1)
 # $1 chemin vers le fichier qui va être écrasé
@@ -30,46 +47,44 @@ function delete {
         path_delete=$(dirname $1)
         path_save=$(dirname $2)
         name=$(basename $2)
-        echo "$3"
-        read verification
-        continuer
-        while [ continuer -eq 1 ];
-        do 
-            if [ verification == "oui" ];
-            then 
+        continuer=1
+        while [ $continuer -eq 1 ];
+        do
+            # On affiche la demande et on lit le choix de l'utilisateur
+            echo "$3"
+            read verification
+            if [ "$verification" == "oui" ];
+            then
                 cp $path_save/$name $path_delete/$name
                 resolu=0
                 continuer=0
-                
-
-            else if [ verification == "non" ];
+            else if [ "$verification" == "non" ];
                 continuer=0
                 resolu=1
-
             else
-                echo "Veuillez entrer oui ou non :"
-                read verification
+                echo "Entrée invalide"
             fi 
-        done 
-    return resolu   
+        done
+
+    return $resolu   
 }
 
 ### Sauvegarde des deux fichier en changeant le nom de l'un d'eux (cas 1)
 # $1 chemin vers le fichier en conflit local
 # $2 chemin vers le fichier en conflit distant
 function double_save {
-    new_name=$(name_change) # On renomme obligatoirement le fichier local
+    new_name=$(name_change $1) # On renomme obligatoirement le fichier local
     file_path_local=$(dirname $1) # chemin vers le fichier > /path/dir/sync
     file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
     file_path_distant=$(dirname $2) # chemin vers le fichier > /path/dir/sync
     
-
-    cp $file_path_local/$file_name $file_path_local/$new_name ### changement de nom dans l'ordi
+    mv $file_path_local/$file_name $file_path_local/$new_name ### changement de nom dans l'ordi
+    echo "[INFO] Changement de nom réalisé"
     cp $file_path_local/$new_name $file_path_distant/$new_name ### path+new_name pour en faire la copie dans le distant
     cp $file_path_distant/$file_name $file_path_local/$file_name
-    resolu=0
+    echo "[INFO] Synchronisation des fichiers réalisés"
 
-    return resolu
+    return 0
 }
 
 ### Changement du nom du fichier (cas 2)
@@ -77,22 +92,24 @@ function double_save {
 # $2 chemin vers le fichier en conflit distant
 # $3 Nouveau nom du fichier
 function file_name_change {
+    new_name=$3
     file_path_local=$(dirname $1) # chemin vers le fichier > /path/dir/sync
     file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
     file_path_distant=$(dirname $2) # chemin vers le fichier > /path/dir/sync
+
     ### Cherche lequel est le fichier ou le répertoire : -d test si répertoire
-        if [ -d $1];
-        then
-            mv $file_path_distant/$file_name $file_path_distant/$3 
-            cp $file_path_local/$file_name $file_path_distant/$file_name
-            cp $file_path_distant/$3 $file_name/$3
-        else 
-            mv $file_path_local/$file_name $file_path_local/$3
-            cp $file_path_local/$3 $file_path_distant/$3
-            cp $file_path_distant/$file_name $file_path_local/$file_path_distant
-        fi
-        resolu=0
-    return resolu
+    if [ -d $1 ];
+    then
+        mv $file_path_distant/$file_name $file_path_distant/$new_name
+        cp $file_path_local/$file_name $file_path_distant/$file_name
+        cp $file_path_distant/$new_name $file_name/$new_name
+    else 
+        mv $file_path_local/$file_name $file_path_local/$new_name
+        cp $file_path_local/$new_name $file_path_distant/$new_name
+        cp $file_path_distant/$file_name $file_path_local/$file_path_distant
+    fi
+
+    return 0
 }
 
 ### Changement du nom du répertoire (cas2)
@@ -104,87 +121,139 @@ function repertory_name_change {
     file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
     file_path_distant=$(dirname $2) # chemin vers le fichier > /path/dir/sync
     ### Cherche lequel est le fichier ou le répertoire : -f test si fichier "ordinaire"
-        if [ -f $1];
-        then
-            mv $file_path_distant/$file_name $file_path_distant/$3
-            cp $file_path_local/$file_name $file_path_distant/$file_name
-            cp $file_path_distant/$3 $file_name/$3
-        else 
-        else 
-            mv $file_path_local/$file_name $file_path_local/$3
-            cp $file_path_local/$3 $file_path_distant/$3
-            cp $file_path_distant/$file_name $file_path_local/$file_path_distant
-        fi
-        resolu=0
-    return resolu  
+    if [ -f $1 ];
+    then
+        mv $file_path_distant/$file_name $file_path_distant/$3
+        cp $file_path_local/$file_name $file_path_distant/$file_name
+        cp $file_path_distant/$3 $file_name/$3
+    else 
+        mv $file_path_local/$file_name $file_path_local/$3
+        cp $file_path_local/$3 $file_path_distant/$3
+        cp $file_path_distant/$file_name $file_path_local/$file_path_distant
+    fi
+    return 0
+}
+
+### Traitement des cas 3 et 4 qui abouti soit à la sauvegarde du fichier soit à sa supression
+# $1 chemin vers le fichier existant
+# $2 chemin vers le repertoire où se trouvait le fichier qui a été supprimé
+# $3 prompt en fonction du traitement du cas 3 ou 4
+function modif_ou_supp {
+    ### Proposition de choix pour l'utilisateur
+    name_file=$(basename $1)
+    file_path_exist=$(dirname $1)
+    echo "$name_file $3"
+    echo "Que souhaitez vous faire : \n 1 - Garder et synchroniser le fichier modifié \n 2 - Supprimer le fichier "
+    read choix
+    if [ choix -eq 1 ];
+    then
+        file_path_supp=$2
+        cp $file_path_exist/$name_file $file_path_supp/$name_file
+        echo "[INFO] Copie réalisée."
+    else if [ choix -eq 2 ];
+        continuer=1
+        while [ continuer -eq 1 ];
+        do 
+            echo "Etes-vous sûr de vouloir supprimer $name_file : (oui/non)"
+            read verification
+            if [ "$verification" == "oui" ];
+            then 
+                rm $file_path_exist/$name_file
+                echo "[INFO] Fichier supprimé"
+                resolu=0
+                continuer=0    
+            else if [ "$verification" == "non" ];
+                continuer=0
+                resolu=1
+
+            else
+                echo "Entrée invalide"
+            fi 
+        done
+    fi
+    return resolu
 }
 
 ### Main script
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
+# => Dans le cas 3 et 4 :  $1 (cas 4) ou $2 (cas 3) correspond juste au chemin absolu vers le repertoire où le fichier a été supprimé
+# $3 type de conflit
 function conflit {
-    ### Selection du type de conflit : choix 1 --> Les deux fichiers ont été modifié depuis la dernière synchro.
-    if [ $2 -eq 1 ];
-    then
-        name_file=$(basename $1)
-        resolu=1
-        while [ resolu -eq 1 ];
-        do
+    resolu=1
+    numero_conflit=$3
+    while [ resolu -eq 1 ];
+    do
+        ### Selection du type de conflit : choix 1 --> Les deux fichiers ont été modifié depuis la dernière synchro.
+        if [ $numero_conflit -eq 1 ]; then
+            name_file=$(basename $1)
+
             ### Proposition de choix pour utilisateur
-            echo "Les deux fichiers $name_file ont été crée ou modifié depuis la dernière synchronisation."
-            echo "Que voulez vous faire :\n 1 - Donner un autre nom à la version présente sur ce pc \n 2 - Ecraser la version disponible sur le pc distant \n 3 - Ecraser le fichier disponible sur ce pc "
+            echo "[INFO] Les deux fichiers $name_file ont été crée ou modifié depuis la dernière synchronisation."
+            echo "Que voulez vous faire :"
+            echo " 1 - Donner un autre nom à la version présente sur ce pc"
+            echo " 2 - Ecraser la version disponible sur le pc distant"
+            echo " 3 - Ecraser le fichier disponible sur ce pc "
             read choix
-            phrase_supp_distant="Etes-vous sûr de vouloir écraser la version disponible sur le pc distant (oui / non) :"
-            phrase_supp_local="Etes-vous sûr de vouloir écraser la version disponible sur ce pc (oui / non) :"
-
+            phrase_supp_distant="[WARN] Etes-vous sûr de vouloir écraser la version disponible sur le pc distant (oui / non) :"
+            phrase_supp_local="[WARN] Etes-vous sûr de vouloir écraser la version disponible sur ce pc (oui / non) :"
             ### Choix : on garde les deux donc on change un des noms
-            if [ choix -eq 1 ];
+            if [ $choix -eq 1 ];
             then 
-                resolu=name_change $1
-
+                resolu=$(double_save $1 $2)
             ### On ecrase sur le pc distant
-            else if [ choix -eq 2 ];
-
+            else if [ $choix -eq 2 ];
                 resolu=$(delete $2 $1 $phrase_supp_distant)
-                
             ### On écrase sur le pc qui lance le sync
-            else if [ choix -eq 3 ];
+            else if [ $choix -eq 3 ];
                 resolu=$(delete $1 $2 $phrase_supp_local)
-
             else
                 echo "Choix non valide."
             fi
-
-        done 
-
-    ### Sélection du type de conflit : choix 2 --> un fichier à le même nom qu'un répertoire
-    else if [ $2 -eq 2 ];
-        resolu=1
-        while [ resolu -eq 1 ];
-        do
+            echo "[INFO] Conflit corrigé"
+        ### Sélection du type de conflit : choix 2 --> un fichier à le même nom qu'un répertoire
+        else if [ $numero_conflit -eq 2 ];
+            name_file=$(basename $1)
             ### Proposition de choix pour l'utilisateur
-            echo "$name_file est à la fois un ficher et un répertoire. Changer le nom du :\n 1 - fichier \n 2 - répertoire"
+            echo "$name_file est à la fois un ficher et un répertoire. Changer le nom du :"
+            echo " 1 - fichier"
+            echo " 2 - répertoire"
             read choix
-
             new_name=$(name_change)
-
             ### On change le nom du fichier
-            if [ choix -eq 1 ];
+            if [ $choix -eq 1 ];
             then 
                 resolu=$(file_name_change $1 $2 $new_name)
-
-            else if [ choix -eq 2];
+            else if [ $choix -eq 2 ];
                 resolu=$(repertory_name_change $1 $2 $new_name)
-
+                # resolu=$(file_name_change $2 $1 $new_name)
             else
                 echo " Choix invalide!"
             fi
-        done
-
-
-    ### Sélection du type de conflit : choix 3 --> # Si le fichier a été supprimé et modifié dans les deux dossiers
-    else if [ $2 -eq 3];
-
-
-    fi           
+        ### Sélection du type de conflit : choix 3 -->  Si le fichier a été modifié en local et supprimer en distant
+        else if [ $numero_conflit -eq 3 ];
+            prompt="se trouve sur le pc local et a été supprimer sur le pc distant"
+            resolu=$(modif_ou_supp $1 $2 $prompt)
+            echo "[INFO] Conflit corrigé"
+        ### Sélection du type de conflit : choix 4 -->  Si le fichier a été modifié en distant et supprimer en local
+        else if [ $numero_conflit -eq 4 ];
+            prompt="se trouve sur le pc distant et a été supprimé sur le pc local"
+            resolu=$(modif_ou_supp $2 $1 $prompt)
+            echo "[INFO] Conflit corrigé"
+        ### Sélection du type de conflit : choix 5 -->  Deux fichier ont été crée avec le même nom
+        else if [ $numero_conflit -eq 5 ];
+            md5_local=$(md5sum $1 | cut -d' ' -f1)
+            md5_distant =$(md5sum $2 | cut -d' ' -f1)
+            if [ "$md5_local" == "$md5_distant" ];
+            then
+                echo "[INFO] Il n'y pas de conflit"
+            else
+                ### On revient au cas 1, on doit soit garder les deux en changeant un des nom soit en supprimer 1
+                conflit $1 $2 1
+            fi
+            resolu=0
+        fi
+    done
 }
 
 conflit $@
