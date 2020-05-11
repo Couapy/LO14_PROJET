@@ -55,7 +55,8 @@ function delete {
                 cp $path_save/$name $path_delete/$name
                 resolu=0
                 continuer=0
-            else if [ "$verification" == "non" ];
+            elif [ "$verification" == "non" ];
+            then
                 continuer=0
                 resolu=1
             else
@@ -119,7 +120,8 @@ function modif_ou_supp {
         file_path_supp=$2
         cp $file_path_exist/$name_file $file_path_supp/$name_file
         echo "[INFO] Copie réalisée."
-    else if [ choix -eq 2 ];
+    elif [ choix -eq 2 ];
+    then
         continuer=1
         while [ continuer -eq 1 ];
         do 
@@ -131,7 +133,8 @@ function modif_ou_supp {
                 echo "[INFO] Fichier supprimé"
                 resolu=0
                 continuer=0    
-            else if [ "$verification" == "non" ];
+            elif [ "$verification" == "non" ];
+            then
                 continuer=0
                 resolu=1
 
@@ -140,7 +143,7 @@ function modif_ou_supp {
             fi 
         done
     fi
-    return resolu
+    return $resolu
 }
 
 ### Fonction gérant le cas 1
@@ -161,16 +164,18 @@ function cas_1 {
         then 
             resolu=$(double_save $1 $2)
             ### On ecrase sur le pc distant
-        else if [ $choix -eq 2 ];
+        elif [ $choix -eq 2 ];
+        then
             resolu=$(delete $2 $1 $phrase_supp_distant)
         ### On écrase sur le pc qui lance le sync
-        else if [ $choix -eq 3 ];
+        elif [ $choix -eq 3 ];
+        then
             resolu=$(delete $1 $2 $phrase_supp_local)
         else
             echo "[ERR]Choix non valide."
         fi
         echo "[INFO] Conflit corrigé"
-    return resolu
+    return $resolu
 }
 
 ### Fonction gérant le cas 2
@@ -192,7 +197,8 @@ function cas_2 {
             else
                 resolu=$(file_name_change $2 $1 $new_name)
             fi
-        else if [ $choix -eq 2 ];
+        elif [ $choix -eq 2 ];
+        then
             if [ -d $1 ];
             then
                 resolu=$(file_name_change $2 $1 $new_name)
@@ -202,7 +208,7 @@ function cas_2 {
         else
             echo "[ERR] Choix invalide!"
         fi
-    return resolu
+    return $resolu
 }
 
 ### Fonction gérant le cas 3
@@ -210,7 +216,7 @@ function cas_3 {
         prompt="se trouve sur le pc local et a été supprimer sur le pc distant"
         resolu=$(modif_ou_supp $1 $2 $prompt)
         echo "[INFO] Conflit corrigé"
-    return resolu   
+    return $resolu   
 }
 
 ### Fonction gérant le cas 4
@@ -218,13 +224,13 @@ function cas_4 {
         prompt="se trouve sur le pc distant et a été supprimé sur le pc local"
         resolu=$(modif_ou_supp $2 $1 $prompt)
         echo "[INFO] Conflit corrigé"
-    return resolu
+    return $resolu
 }
 
 ### Fonction gérant le cas 5
 function cas_5 {
         md5_local=$(md5sum $1 | cut -d' ' -f1)
-        md5_distant =$(md5sum $2 | cut -d' ' -f1)
+        md5_distant=$(md5sum $2 | cut -d' ' -f1)
         if [ "$md5_local" == "$md5_distant" ];
         then
             echo "[INFO] Il n'y pas de conflit"
@@ -233,7 +239,7 @@ function cas_5 {
             conflit $1 $2 1
         fi
         resolu=0
-    return resolu
+    return $resolu
 }
 
 ### Main script
@@ -244,22 +250,22 @@ function cas_5 {
 function conflit {
     resolu=1
     numero_conflit=$3
-    while [ resolu -eq 1 ];
+    while [ $resolu -eq 1 ];
     do
         ### Selection du type de conflit : choix 1 --> Les deux fichiers ont été modifié depuis la dernière synchro.
         if [ $numero_conflit -eq 1 ]; then
             resolu=$(cas_1 $1 $2)
         ### Sélection du type de conflit : choix 2 --> un fichier à le même nom qu'un répertoire
-        else if [ $numero_conflit -eq 2 ];
+        elif [ $numero_conflit -eq 2 ]; then
             resolu=$(cas_2 $1 $2)
         ### Sélection du type de conflit : choix 3 -->  Si le fichier a été modifié en local et supprimer en distant
-        else if [ $numero_conflit -eq 3 ];
+        elif [ $numero_conflit -eq 3 ]; then
             resolu=$(cas_3 $1 $2)
         ### Sélection du type de conflit : choix 4 -->  Si le fichier a été modifié en distant et supprimer en local
-        else if [ $numero_conflit -eq 4 ];
+        elif [ $numero_conflit -eq 4 ]; then
             resolu=$(cas_4 $1 $2)
         ### Sélection du type de conflit : choix 5 -->  Deux fichier ont été crée avec le même nom
-        else if [ $numero_conflit -eq 5 ];
+        elif [ $numero_conflit -eq 5 ]; then
            resolu=$(cas_5 $1 $2)
         fi
     done
