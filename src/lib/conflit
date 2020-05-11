@@ -1,12 +1,7 @@
 #!/bin/bash
 
 
-### Scinder chaque buche en une fonction paire pour raccourcir fonction principale
-### Remplacer les else if par elif
-### remettre les then à la ligne
 ### Revoir la mise en page [WARN] [INFO] [ERR] (optionnel)
-### Fusionner file_name_change et repertory_name_change
-###     Jouer sur l'ordre des arguments
 
 
 ### $1 chemin absolu du fichier local créant conflit
@@ -33,7 +28,7 @@ function name_change {
             read new_name
             if [ -e $chemin/$new_name ];
             then
-                echo "Ce nom est déjà attribué à un autre fichier ou répertoire. \n"
+                echo "[ERR] Ce nom est déjà attribué à un autre fichier ou répertoire. \n"
             else
                 continuer=0
             fi
@@ -64,7 +59,7 @@ function delete {
                 continuer=0
                 resolu=1
             else
-                echo "Entrée invalide"
+                echo "[ERR] Entrée invalide"
             fi 
         done
 
@@ -156,7 +151,7 @@ function modif_ou_supp {
         continuer=1
         while [ continuer -eq 1 ];
         do 
-            echo "Etes-vous sûr de vouloir supprimer $name_file : (oui/non)"
+            echo "[WARN] Etes-vous sûr de vouloir supprimer $name_file : (oui/non)"
             read verification
             if [ "$verification" == "oui" ];
             then 
@@ -169,10 +164,93 @@ function modif_ou_supp {
                 resolu=1
 
             else
-                echo "Entrée invalide"
+                echo "[ERR] Entrée invalide"
             fi 
         done
     fi
+    return resolu
+}
+
+### Fonction gérant le cas 1
+function cas_1 {
+        name_file=$(basename $1)
+
+        ### Proposition de choix pour utilisateur
+        echo "[INFO] Les deux fichiers $name_file ont été crée ou modifié depuis la dernière synchronisation."
+        echo "Que voulez vous faire :"
+        echo " 1 - Donner un autre nom à la version présente sur ce pc"
+        echo " 2 - Ecraser la version disponible sur le pc distant"
+        echo " 3 - Ecraser le fichier disponible sur ce pc "
+        read choix
+        phrase_supp_distant="[WARN] Etes-vous sûr de vouloir écraser la version disponible sur le pc distant (oui / non) :"
+        phrase_supp_local="[WARN] Etes-vous sûr de vouloir écraser la version disponible sur ce pc (oui / non) :"
+        ### Choix : on garde les deux donc on change un des noms
+        if [ $choix -eq 1 ];
+        then 
+            resolu=$(double_save $1 $2)
+            ### On ecrase sur le pc distant
+        else if [ $choix -eq 2 ];
+            resolu=$(delete $2 $1 $phrase_supp_distant)
+        ### On écrase sur le pc qui lance le sync
+        else if [ $choix -eq 3 ];
+            resolu=$(delete $1 $2 $phrase_supp_local)
+        else
+            echo "[ERR]Choix non valide."
+        fi
+        echo "[INFO] Conflit corrigé"
+    return resolu
+}
+
+### Fonction gérant le cas 2
+function cas_2 {
+        name_file=$(basename $1)
+        ### Proposition de choix pour l'utilisateur
+        echo "$name_file est à la fois un ficher et un répertoire. Changer le nom du :"
+        echo " 1 - fichier"
+        echo " 2 - répertoire"
+        read choix
+        new_name=$(name_change)
+        ### On change le nom du fichier
+        if [ $choix -eq 1 ];
+        then 
+            resolu=$(file_name_change $1 $2 $new_name)
+        else if [ $choix -eq 2 ];
+            resolu=$(repertory_name_change $1 $2 $new_name)
+            # resolu=$(file_name_change $2 $1 $new_name)
+        else
+            echo "[ERR] Choix invalide!"
+        fi
+    return resolu
+}
+
+### Fonction gérant le cas 3
+function cas_3 {
+        prompt="se trouve sur le pc local et a été supprimer sur le pc distant"
+        resolu=$(modif_ou_supp $1 $2 $prompt)
+        echo "[INFO] Conflit corrigé"
+    return resolu   
+}
+
+### Fonction gérant le cas 4
+function cas_4 {
+        prompt="se trouve sur le pc distant et a été supprimé sur le pc local"
+        resolu=$(modif_ou_supp $2 $1 $prompt)
+        echo "[INFO] Conflit corrigé"
+    return resolu
+}
+
+### Fonction gérant le cas 5
+function cas_5 {
+        md5_local=$(md5sum $1 | cut -d' ' -f1)
+        md5_distant =$(md5sum $2 | cut -d' ' -f1)
+        if [ "$md5_local" == "$md5_distant" ];
+        then
+            echo "[INFO] Il n'y pas de conflit"
+        else
+            ### On revient au cas 1, on doit soit garder les deux en changeant un des nom soit en supprimer 1
+            conflit $1 $2 1
+        fi
+        resolu=0
     return resolu
 }
 
@@ -188,72 +266,19 @@ function conflit {
     do
         ### Selection du type de conflit : choix 1 --> Les deux fichiers ont été modifié depuis la dernière synchro.
         if [ $numero_conflit -eq 1 ]; then
-            name_file=$(basename $1)
-
-            ### Proposition de choix pour utilisateur
-            echo "[INFO] Les deux fichiers $name_file ont été crée ou modifié depuis la dernière synchronisation."
-            echo "Que voulez vous faire :"
-            echo " 1 - Donner un autre nom à la version présente sur ce pc"
-            echo " 2 - Ecraser la version disponible sur le pc distant"
-            echo " 3 - Ecraser le fichier disponible sur ce pc "
-            read choix
-            phrase_supp_distant="[WARN] Etes-vous sûr de vouloir écraser la version disponible sur le pc distant (oui / non) :"
-            phrase_supp_local="[WARN] Etes-vous sûr de vouloir écraser la version disponible sur ce pc (oui / non) :"
-            ### Choix : on garde les deux donc on change un des noms
-            if [ $choix -eq 1 ];
-            then 
-                resolu=$(double_save $1 $2)
-            ### On ecrase sur le pc distant
-            else if [ $choix -eq 2 ];
-                resolu=$(delete $2 $1 $phrase_supp_distant)
-            ### On écrase sur le pc qui lance le sync
-            else if [ $choix -eq 3 ];
-                resolu=$(delete $1 $2 $phrase_supp_local)
-            else
-                echo "Choix non valide."
-            fi
-            echo "[INFO] Conflit corrigé"
+            resolu=$(cas_1 $1 $2)
         ### Sélection du type de conflit : choix 2 --> un fichier à le même nom qu'un répertoire
         else if [ $numero_conflit -eq 2 ];
-            name_file=$(basename $1)
-            ### Proposition de choix pour l'utilisateur
-            echo "$name_file est à la fois un ficher et un répertoire. Changer le nom du :"
-            echo " 1 - fichier"
-            echo " 2 - répertoire"
-            read choix
-            new_name=$(name_change)
-            ### On change le nom du fichier
-            if [ $choix -eq 1 ];
-            then 
-                resolu=$(file_name_change $1 $2 $new_name)
-            else if [ $choix -eq 2 ];
-                resolu=$(repertory_name_change $1 $2 $new_name)
-                # resolu=$(file_name_change $2 $1 $new_name)
-            else
-                echo " Choix invalide!"
-            fi
+            resolu=$(cas_2 $1 $2)
         ### Sélection du type de conflit : choix 3 -->  Si le fichier a été modifié en local et supprimer en distant
         else if [ $numero_conflit -eq 3 ];
-            prompt="se trouve sur le pc local et a été supprimer sur le pc distant"
-            resolu=$(modif_ou_supp $1 $2 $prompt)
-            echo "[INFO] Conflit corrigé"
+            resolu=$(cas_3 $1 $2)
         ### Sélection du type de conflit : choix 4 -->  Si le fichier a été modifié en distant et supprimer en local
         else if [ $numero_conflit -eq 4 ];
-            prompt="se trouve sur le pc distant et a été supprimé sur le pc local"
-            resolu=$(modif_ou_supp $2 $1 $prompt)
-            echo "[INFO] Conflit corrigé"
+            resolu=$(cas_4 $1 $2)
         ### Sélection du type de conflit : choix 5 -->  Deux fichier ont été crée avec le même nom
         else if [ $numero_conflit -eq 5 ];
-            md5_local=$(md5sum $1 | cut -d' ' -f1)
-            md5_distant =$(md5sum $2 | cut -d' ' -f1)
-            if [ "$md5_local" == "$md5_distant" ];
-            then
-                echo "[INFO] Il n'y pas de conflit"
-            else
-                ### On revient au cas 1, on doit soit garder les deux en changeant un des nom soit en supprimer 1
-                conflit $1 $2 1
-            fi
-            resolu=0
+           resolu=$(cas_5 $1 $2)
         fi
     done
 }
