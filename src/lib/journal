@@ -97,6 +97,8 @@ if [ $# -gt 1 ]; then
     elif [ $commande = "diff" ]; then
         diff $2
         exit
+    else
+        echo "[ERR] Cette commande n'existe pas."
     fi
 else
     echo "[ERR] Il n'y a pas assez d'arguments transmis."

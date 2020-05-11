@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # Cette fonction retourne le chemin relatif d'un module du projet
+#
+# $1 nom de la librairie à charger
 function get_lib {
     echo "$(dirname $0)/$1"
 }
@@ -9,6 +11,7 @@ function get_lib {
 #
 # Attention elle va uniquement dans un sens (local -> distant)
 # et nécéssite un autre appel qui fera (distant -> local)
+# car certains conflits ne peuvent être détectés
 #
 # $1 dossier synchronisé
 function detecter_conflit {
@@ -23,12 +26,6 @@ function detecter_conflit {
     $journal_path diff $local > $diff_local_path
     diff_distant_path="${distant}/.sync/diff"
     $journal_path diff $distant > $diff_distant_path
-
-    # cas 1 --> Les deux fichiers ont été modifié depuis la dernière synchro.
-    # cas 2 --> un fichier à le même nom qu'un répertoire
-    # cas 3 --> Si le fichier a été modifié en local et supprimer en distant
-    # cas 4 --> Si le fichier a été modifié en distant et supprimer en local
-    # cas 5 --> Deux fichier ont été crée avec le même nom
 
     for diff in $(cat $diff_local_path)
     do
@@ -65,16 +62,64 @@ function detecter_conflit {
     rm $diff_distant_path
 }
 
+# Cette fonction permet de synchroniser deux dossier qui
+# n'ont pas de conflits
+#
+# $1 dossier local
+# $2 dossier distant
+function sync {
+    local=$1
+    distant=$(cat $local/.sync/remote)
+    journal_path=$(get_lib journal)
+
+    for diff in $($journal_path diff $local)
+    do
+        type=$(echo $diff | cut -d"#" -f1)
+        fichier=$(echo $diff | cut -d"#" -f2)
+        if [ "$type" == "ADD" ]; then
+            if [ -d $local/$fichier ]; then
+                mkdir $distant/$fichier
+            else
+                cp -rpf $local/$fichier $distant/$fichier
+            fi
+        elif [ "$type" == "REM" ]; then
+            rm -rf $distant/$fichier
+        elif [ "$type" == "MOD" ]; then
+            cp -pf $local/$fichier $distant/$fichier
+        fi
+    done
+
+    for diff in $($journal_path diff $distant)
+    do
+        type=$(echo $diff | cut -d"#" -f1)
+        fichier=$(echo $diff | cut -d"#" -f2)
+        if [ "$type" == "ADD" ]; then
+            if [ -d $distant/$fichier ]; then
+                mkdir $local/$fichier
+            else
+                cp -rpf $distant/$fichier $local/$fichier
+            fi
+        elif [ "$type" == "REM" ]; then
+            rm -rf $local/$fichier
+        elif [ "$type" == "MOD" ]; then
+            cp -pf $distant/$fichier $local/$fichier
+        fi
+    done
+
+    $journal_path get $local > $local/.sync/journal
+    $journal_path get $local > $distant/.sync/journal
+}
+
 
 if [ $# -gt 1 ]; then
     if [ $1 == 'conflits' ]; then
         detecter_conflit $2
         exit
-    fi
-
-    if [ $1 == 'sync' ]; then
-        date
+    elif [ $1 == 'sync' ]; then
+        sync $2
         exit
+    else
+        echo "[ERR] Cette commande n'existe pas."
     fi
 else
     echo "[ERR] Veuillez transmettre au moins un argument."

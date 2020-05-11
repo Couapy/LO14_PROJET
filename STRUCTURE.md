@@ -20,7 +20,7 @@ Les sources sont situées dans le dossier **src**.
 
 * lib/
   * Contient toutes les librairies nécéssaires au projet
-* help
+* help.md
   * Contient l'aide affichée par le programme
 * sync
   * Programme principal du projet
@@ -28,8 +28,8 @@ Les sources sont situées dans le dossier **src**.
 ### Dossier lib
 
 * conflit
-  * Permet de gérer les conflits
+  * Librairie permettant de résoudre tous les conflits
 * journal
-  * Permet de gérer l'état du dossier et sa journalisation
+  * Librairie qui suit l'évolution d'un dossier
 * sync
-  * Permet de synchroniser deux dossier entre eux
+  * Librairie qui permet de synchroniser les dossiers

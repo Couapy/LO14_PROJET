@@ -64,13 +64,14 @@ function diff {
     fi
 }
 
-# Cette fonction permet de mettre à jour le
+# Cette fonction permet de mettre à jour les dossiers
+#
+# 
 function sync {
     if [ -d $PWD/.sync ]; then
         local=$PWD
         distant=$(cat $local/.sync/remote)
         sync_path=$(get_lib sync)
-        journal_path=$(get_lib journal)
         conflit_path=$(get_lib conflit)
         continuer=1
         reponse="undefined"
@@ -102,6 +103,7 @@ function sync {
                         distant_path=$distant/$file_name
                         $(dirname $0)/lib/conflit $conflit_path $local_path $distant_path $err_code
                     done
+                    echo "==================================================="
 
                     echo "[INFO] Résolution des conflits terminée."
                 else
@@ -112,48 +114,7 @@ function sync {
                 echo "[INFO] Aucun conflit trouvé."
                 echo "[INFO] Synchronisation en cours..."
 
-                for diff in $($journal_path diff $local)
-                do
-                    type=$(echo $diff | cut -d"#" -f1)
-                    fichier=$(echo $diff | cut -d"#" -f2)
-                    if [ "$type" == "ADD" ]; then
-                        if [ -d $local/$fichier ]; then
-                            mkdir $distant/$fichier
-                        else
-                            echo "copie de $fichier"
-                            cp -rpf $local/$fichier $distant/$fichier
-                        fi
-                    elif [ "$type" == "REM" ]; then
-                        echo "suppression de $fichier"
-                        rm -rf $distant/$fichier
-                    elif [ "$type" == "MOD" ]; then
-                        echo "mise à jour de $fichier"
-                        cp -pf $local/$fichier $distant/$fichier
-                    fi
-                done
-
-                for diff in $($journal_path diff $distant)
-                do
-                    type=$(echo $diff | cut -d"#" -f1)
-                    fichier=$(echo $diff | cut -d"#" -f2)
-                    if [ "$type" == "ADD" ]; then
-                        if [ -d $distant/$fichier ]; then
-                            mkdir $local/$fichier
-                        else
-                            echo "copie de $fichier"
-                            cp -rpf $distant/$fichier $local/$fichier
-                        fi
-                    elif [ "$type" == "REM" ]; then
-                        echo "suppression de $fichier"
-                        rm -rf $local/$fichier
-                    elif [ "$type" == "MOD" ]; then
-                        echo "mise à jour de $fichier"
-                        cp -pf $distant/$fichier $local/$fichier
-                    fi
-                done
-
-                $journal_path get $local > $local/.sync/journal
-                $journal_path get $local > $distant/.sync/journal
+                $sync_path sync $local $distant
 
                 echo "[INFO] Synchronisation terminée."
                 continuer=0
