@@ -12,7 +12,7 @@
 #                   2 - Un fichier à le même nom qu'un répertoire
 #                   3 - Fichier modifié en local et supprimé en distant [!!] ici $2 correspond au chemin absolu ou se trouvé le fichié supprimé distant
 #                   4 - Fichier modifié en distant et supprimé en local [!!] ici $1 correspond au chemin absolu ou se trouvé le fichié supprimé distant
-#                   5 - Deux Fichiers ont été crées avec le même nom
+#                   5 - Deux Fichiers ont été créés avec le même nom
 
 ### $1, nom du fichier qui pose problème
 ### $2 type de conflit
@@ -84,50 +84,22 @@ function double_save {
     return 0
 }
 
-### Changement du nom du fichier (cas 2)
-# $1 chemin vers le fichier en conflit local
-# $2 chemin vers le fichier en conflit distant
+### Changement du nom du fichier ou repertoire (cas 2)
+# $1 chemin vers le fichier ou répertoiree dont on ne souhaite pas changer le nom
+# $2 chemin vers le fichier ou répertoiree dont on souhaite changer le nom
 # $3 Nouveau nom du fichier
 function file_name_change {
-    new_name=$3
-    file_path_local=$(dirname $1) # chemin vers le fichier > /path/dir/sync
-    file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
-    file_path_distant=$(dirname $2) # chemin vers le fichier > /path/dir/sync
+        new_name=$3
+        path_no_change_file=$(dirname $1) # chemin vers le fichier > /path/dir/sync
+        file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
+        path_change_file=$(dirname $2) # chemin vers le fichier > /path/dir/sync
 
-    ### Cherche lequel est le fichier ou le répertoire : -d test si répertoire
-    if [ -d $1 ];
-    then
-        mv $file_path_distant/$file_name $file_path_distant/$new_name
-        cp $file_path_local/$file_name $file_path_distant/$file_name
-        cp $file_path_distant/$new_name $file_name/$new_name
-    else 
-        mv $file_path_local/$file_name $file_path_local/$new_name
-        cp $file_path_local/$new_name $file_path_distant/$new_name
-        cp $file_path_distant/$file_name $file_path_local/$file_path_distant
-    fi
+        ### Cherche lequel est le fichier ou le répertoire : -d test si répertoire
 
-    return 0
-}
-
-### Changement du nom du répertoire (cas2)
-# $1 chemin vers le fichier en conflit local
-# $2 chemin vers le fichier en conflit distant
-# $3 Nouveau nom du repertoire
-function repertory_name_change {
-    file_path_local=$(dirname $1) # chemin vers le fichier > /path/dir/sync
-    file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
-    file_path_distant=$(dirname $2) # chemin vers le fichier > /path/dir/sync
-    ### Cherche lequel est le fichier ou le répertoire : -f test si fichier "ordinaire"
-    if [ -f $1 ];
-    then
-        mv $file_path_distant/$file_name $file_path_distant/$3
-        cp $file_path_local/$file_name $file_path_distant/$file_name
-        cp $file_path_distant/$3 $file_name/$3
-    else 
-        mv $file_path_local/$file_name $file_path_local/$3
-        cp $file_path_local/$3 $file_path_distant/$3
-        cp $file_path_distant/$file_name $file_path_local/$file_path_distant
-    fi
+        mv $path_change_file/$file_name $path_change_file/$new_name
+        cp $path_no_change_file/$file_name $path_change_file/$file_name
+        cp $path_change_file/$new_name $path_no_change_file/$new_name
+   
     return 0
 }
 
@@ -211,12 +183,22 @@ function cas_2 {
         read choix
         new_name=$(name_change)
         ### On change le nom du fichier
+        
         if [ $choix -eq 1 ];
         then 
-            resolu=$(file_name_change $1 $2 $new_name)
+            if [ -d $1];
+            then
+                resolu=$(file_name_change $1 $2 $new_name)
+            else
+                resolu=$(file_name_change $2 $1 $new_name)
+            fi
         else if [ $choix -eq 2 ];
-            resolu=$(repertory_name_change $1 $2 $new_name)
-            # resolu=$(file_name_change $2 $1 $new_name)
+            if [ -d $1 ];
+            then
+                resolu=$(file_name_change $2 $1 $new_name)
+            else
+                resolu=$(file_name_change $1 $2 $new_name)
+            fi
         else
             echo "[ERR] Choix invalide!"
         fi
