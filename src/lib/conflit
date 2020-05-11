@@ -22,7 +22,7 @@
 function name_change {
     chemin=$(dirname $1)
     continuer=1
-    while [ "$continuer" -eq 1 ];
+    while [ $continuer -eq 1 ];
     do
         echo "Nouveau nom : "
         read new_name
@@ -46,7 +46,7 @@ function delete {
     path_save=$(dirname $2)
     name=$(basename $2)
     continuer=1
-    while [ "$continuer" -eq 1 ];
+    while [ $continuer -eq 1 ];
     do
         # On affiche la demande et on lit le choix de l'utilisateur
         echo $3
@@ -96,8 +96,6 @@ function file_name_change {
     file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
     path_change_file=$(dirname $2) # chemin vers le fichier > /path/dir/sync
 
-    ### Cherche lequel est le fichier ou le répertoire : -d test si répertoire
-
     mv $path_change_file/$file_name $path_change_file/$new_name
     cp $path_no_change_file/$file_name $path_change_file/$file_name
     cp $path_change_file/$new_name $path_no_change_file/$new_name
@@ -120,12 +118,12 @@ function modif_ou_supp {
     echo " 2 - Supprimer le fichier "
     read choix
 
-    if [ "$choix" -eq 1 ];
+    if [ $choix -eq 1 ];
     then
         file_path_supp=$2
         cp $file_path_exist/$name_file $file_path_supp/$name_file
         echo "[INFO] Copie réalisée."
-    elif [ "$choix" -eq "2" ];
+    elif [ $choix -eq "2" ];
     then
         continuer=1
         while [ $continuer -eq 1 ];
@@ -166,15 +164,15 @@ function cas_1 {
     phrase_supp_distant="[WARN] Etes-vous sûr de vouloir écraser la version disponible sur le pc distant (oui / non) :"
     phrase_supp_local="[WARN] Etes-vous sûr de vouloir écraser la version disponible sur ce pc (oui / non) :"
     ### Choix : on garde les deux donc on change un des noms
-    if [ "$choix" -eq 1 ];
+    if [ $choix -eq 1 ];
     then 
         resolu=$(double_save $1 $2)
     ### On ecrase sur le pc distant
-    elif [ "$choix" -eq 2 ];
+    elif [ $choix -eq 2 ];
     then
         resolu=$(delete $2 $1 $phrase_supp_distant)
     ### On écrase sur le pc qui lance le sync
-    elif [ "$choix" -eq 3 ];
+    elif [ $choix -eq 3 ];
     then
         resolu=$(delete $1 $2 $phrase_supp_local)
     else
@@ -198,7 +196,7 @@ function cas_2 {
     new_name=$(name_change)
     ### On change le nom du fichier
     
-    if [ "$choix" -eq 1 ];
+    if [ $choix -eq 1 ];
     then 
         if [ -d $1];
         then
@@ -206,7 +204,7 @@ function cas_2 {
         else
             resolu=$(file_name_change $2 $1 $new_name)
         fi
-    elif [ "$choix" -eq 2 ];
+    elif [ $choix -eq 2 ];
     then
         if [ -d $1 ];
         then
@@ -263,22 +261,22 @@ function cas_5 {
 function conflit {
     resolu=1
     numero_conflit=$3
-    while [ "$resolu" -eq 1 ];
+    while [ $resolu -eq 1 ];
     do
         ### Selection du type de conflit : choix 1 --> Les deux fichiers ont été modifié depuis la dernière synchro.
-        if [ "$numero_conflit" -eq 1 ]; then
+        if [ $numero_conflit -eq 1 ]; then
             resolu=$(cas_1 $1 $2)
         ### Sélection du type de conflit : choix 2 --> un fichier à le même nom qu'un répertoire
-        elif [ "$numero_conflit" -eq 2 ]; then
+        elif [ $numero_conflit -eq 2 ]; then
             resolu=$(cas_2 $1 $2)
         ### Sélection du type de conflit : choix 3 -->  Si le fichier a été modifié en local et supprimer en distant
-        elif [ "$numero_conflit" -eq 3 ]; then
+        elif [ $numero_conflit -eq 3 ]; then
             resolu=$(cas_3 $1 $2)
         ### Sélection du type de conflit : choix 4 -->  Si le fichier a été modifié en distant et supprimer en local
-        elif [ "$numero_conflit" -eq 4 ]; then
+        elif [ $numero_conflit -eq 4 ]; then
             resolu=$(cas_4 $1 $2)
         ### Sélection du type de conflit : choix 5 -->  Deux fichier ont été crée avec le même nom
-        elif [ "$numero_conflit" -eq 5 ]; then
+        elif [ $numero_conflit -eq 5 ]; then
            resolu=$(cas_5 $1 $2)
         fi
     done
