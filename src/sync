@@ -12,36 +12,40 @@ function get_lib {
 #
 # $1 chemin vers le nouveau dossier à cloner
 function init {
-    local=$PWD
-    distant=$(readlink -f $1)
-    if ! [ -d $distant ]; then
-        if [ "$(echo "${distant}/" | egrep "^(${local}/)")" = "" ]; then
-            if ! [ -d $local/.sync ]; then
-                echo "[INFO] Initialisation en cours..."
+    if [ "$1" != "" ]; then
+        local=$PWD
+        distant=$(readlink -f $1)
+        if ! [ -d $distant ]; then
+            if [ "$(echo "${distant}/" | egrep "^(${local}/)")" = "" ]; then
+                if ! [ -d $local/.sync ]; then
+                    echo "[INFO] Initialisation en cours..."
 
-                # Copie des fichiers
-                cp -pr $local $distant
-                # On créé un .sync dans les deux dossies
-                #   Génère le journal dans les deux dossiers
-                mkdir $local/.sync
-                journal_path=$(get_lib journal)
-                journal=$($journal_path get $local > $local/.sync/journal)
+                    # Copie des fichiers
+                    cp -pr $local $distant
+                    # On créé un .sync dans les deux dossies
+                    #   Génère le journal dans les deux dossiers
+                    mkdir $local/.sync
+                    journal_path=$(get_lib journal)
+                    journal=$($journal_path get $local > $local/.sync/journal)
 
-                cp -r $local/.sync $distant/.sync
+                    cp -r $local/.sync $distant/.sync
 
-                #   Génère le fichier remote dans les deux dossiers
-                echo $distant > $local/.sync/remote
-                echo $local > $distant/.sync/remote
+                    #   Génère le fichier remote dans les deux dossiers
+                    echo $distant > $local/.sync/remote
+                    echo $local > $distant/.sync/remote
 
-                echo "[INFO] Initialisation terminé..."
+                    echo "[INFO] Initialisation terminé..."
+                else
+                    echo "[ERR] Le dossier actuel est déjà synchronisé."
+                fi
             else
-                echo "[ERR] Le dossier actuel est déjà synchronisé."
+                echo "[ERR] Le dossier distant se trouve dans le dossier à cloner."
             fi
         else
-            echo "[ERR] Le dossier distant se trouve dans le dossier à cloner."
+            echo "[ERR] Le dossier ${distant} existe déjà."
         fi
     else
-        echo "[ERR] Le dossier ${distant} existe déjà."
+        echo "[ERR] Veuillez transmettre un dossier en argument."
     fi
 }
 
@@ -66,6 +70,7 @@ function sync {
         local=$PWD
         distant=$(cat $local/.sync/remote)
         sync_path=$(get_lib sync)
+        journal_path=$(get_lib journal)
         conflit_path=$(get_lib conflit)
         continuer=1
         reponse="undefined"
@@ -78,21 +83,23 @@ function sync {
             conflits=$(echo $conflits_locaux $conflits_distants | sort | uniq)
             if [ $(echo $conflits | wc -c) -gt 1 ]; then
                 echo "[WARN] Des conflits ont été trouvés."
+                echo "---------------------------------------------------"
+                echo $conflits | sed 's/ /\n/g'
+                echo "---------------------------------------------------"
                 if [ "$reponse" == "undefined" ]; then
                     echo "[INFO] Voulez-vous corriger les conflits ? (oui|non) "
                     read reponse
                 fi
                 if [ "$reponse" == "oui" ]; then
-                    echo "[WARN] Des conflits ont été trouvés."
                     echo "[INFO] Résolution des conflits en cours..."
 
                     for conflit in $conflits
                     do
+                        echo "==================================================="
                         err_code=$(echo $conflit | cut -d">" -f1)
                         file_name=$(echo $conflit | cut -d">" -f2)
                         local_path=$local/$file_name
                         distant_path=$distant/$file_name
-                        echo "[RES][${err_code}] ${file_name}"
                         $(dirname $0)/lib/conflit $conflit_path $local_path $distant_path $err_code
                     done
 
@@ -105,8 +112,48 @@ function sync {
                 echo "[INFO] Aucun conflit trouvé."
                 echo "[INFO] Synchronisation en cours..."
 
-                # Effectuer les mise à jour à partir des fichiers diff
-                # TODO
+                for diff in $($journal_path diff $local)
+                do
+                    type=$(echo $diff | cut -d"#" -f1)
+                    fichier=$(echo $diff | cut -d"#" -f2)
+                    if [ "$type" == "ADD" ]; then
+                        if [ -d $local/$fichier ]; then
+                            mkdir $distant/$fichier
+                        else
+                            echo "copie de $fichier"
+                            cp -rpf $local/$fichier $distant/$fichier
+                        fi
+                    elif [ "$type" == "REM" ]; then
+                        echo "suppression de $fichier"
+                        rm -rf $distant/$fichier
+                    elif [ "$type" == "MOD" ]; then
+                        echo "mise à jour de $fichier"
+                        cp -pf $local/$fichier $distant/$fichier
+                    fi
+                done
+
+                for diff in $($journal_path diff $distant)
+                do
+                    type=$(echo $diff | cut -d"#" -f1)
+                    fichier=$(echo $diff | cut -d"#" -f2)
+                    if [ "$type" == "ADD" ]; then
+                        if [ -d $distant/$fichier ]; then
+                            mkdir $local/$fichier
+                        else
+                            echo "copie de $fichier"
+                            cp -rpf $distant/$fichier $local/$fichier
+                        fi
+                    elif [ "$type" == "REM" ]; then
+                        echo "suppression de $fichier"
+                        rm -rf $local/$fichier
+                    elif [ "$type" == "MOD" ]; then
+                        echo "mise à jour de $fichier"
+                        cp -pf $distant/$fichier $local/$fichier
+                    fi
+                done
+
+                $journal_path get $local > $local/.sync/journal
+                $journal_path get $local > $distant/.sync/journal
 
                 echo "[INFO] Synchronisation terminée."
                 continuer=0

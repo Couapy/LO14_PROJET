@@ -60,6 +60,9 @@ function detecter_conflit {
             fi
         fi
     done
+
+    rm $diff_local_path
+    rm $diff_distant_path
 }
 
 

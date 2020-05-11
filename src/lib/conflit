@@ -207,7 +207,7 @@ function cas_2 {
         echo "[ERR] Choix invalide!"
     fi
 
-    return true
+    return 1
 }
 
 ### Fonction gérant le cas 3
