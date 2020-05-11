@@ -8,11 +8,11 @@
 ### $2 chemin absolu du fichier distant créant conflit
 ### $3 cas du conflit
 # Différent cas : (le numéro indiquer correspond à la valeur de $3 dans le script principal)
-#                   1 - Les deux fichiers ont été modifié depuis la dernière synchro
-#                   2 - Un fichier à le même nom qu'un répertoire
-#                   3 - Fichier modifié en local et supprimé en distant [!!] ici $2 correspond au chemin absolu ou se trouvé le fichié supprimé distant
-#                   4 - Fichier modifié en distant et supprimé en local [!!] ici $1 correspond au chemin absolu ou se trouvé le fichié supprimé distant
-#                   5 - Deux Fichiers ont été créés avec le même nom
+#     1 - Les deux fichiers ont été modifié depuis la dernière synchro
+#     2 - Un fichier à le même nom qu'un répertoire
+#     3 - Fichier modifié en local et supprimé en distant [!!] ici $2 correspond au chemin absolu ou se trouvé le fichié supprimé distant
+#     4 - Fichier modifié en distant et supprimé en local [!!] ici $1 correspond au chemin absolu ou se trouvé le fichié supprimé distant
+#     5 - Deux Fichiers ont été créés avec le même nom
 
 ### $1, nom du fichier qui pose problème
 ### $2 type de conflit
@@ -33,8 +33,6 @@ function name_change {
             continuer=0
         fi
     done
-
-    return $new_name
 }
 
 ### Ecrase le fichier se trouvant sur le pc par celui de la machine distante (cas 1)
@@ -87,20 +85,14 @@ function double_save {
 }
 
 ### Changement du nom du fichier ou repertoire (cas 2)
-# $1 chemin vers le fichier ou répertoire dont on ne souhaite pas changer le nom
-# $2 chemin vers le fichier ou répertoire dont on souhaite changer le nom
-# $3 Nouveau nom du fichier
+# $1 chemin vers le fichier ou répertoire dont on souhaite changer le nom
+# $2 Nouveau nom du fichier
 function file_name_change {
-    new_name=$3
-    path_no_change_file=$(dirname $1) # chemin vers le fichier > /path/dir/sync
+    new_name=$2
     file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
-    path_change_file=$(dirname $2) # chemin vers le fichier > /path/dir/sync
+    path_change_file=$(dirname $1) # chemin vers le fichier > /path/dir/sync
 
     mv $path_change_file/$file_name $path_change_file/$new_name
-    cp $path_no_change_file/$file_name $path_change_file/$file_name
-    cp $path_change_file/$new_name $path_no_change_file/$new_name
-   
-    return 0
 }
 
 ### Traitement des cas 3 et 4 qui abouti soit à la sauvegarde du fichier soit à sa supression
@@ -121,6 +113,7 @@ function modif_ou_supp {
     if [ $choix -eq 1 ];
     then
         file_path_supp=$2
+        
         cp $file_path_exist/$name_file $file_path_supp/$name_file
         echo "[INFO] Copie réalisée."
     elif [ $choix -eq "2" ];
@@ -186,37 +179,35 @@ function cas_1 {
 ### Fonction gérant le cas 2
 function cas_2 {
     name_file=$(basename $1)
-    resolu=1
+    new_name=""
 
     ### Proposition de choix pour l'utilisateur
-    echo "$name_file est à la fois un ficher et un répertoire. Changer le nom du :"
+    echo "${name_file} est à la fois un ficher et un répertoire. Changer le nom du :"
     echo " 1 - fichier"
     echo " 2 - répertoire"
     read choix
-    new_name=$(name_change)
-    ### On change le nom du fichier
-    
-    if [ $choix -eq 1 ];
-    then 
-        if [ -d $1];
-        then
-            resolu=$(file_name_change $1 $2 $new_name)
-        else
-            resolu=$(file_name_change $2 $1 $new_name)
-        fi
-    elif [ $choix -eq 2 ];
+    name_change $1
+
+    if [ -d $1 ];
     then
-        if [ -d $1 ];
-        then
-            resolu=$(file_name_change $2 $1 $new_name)
-        else
-            resolu=$(file_name_change $1 $2 $new_name)
-        fi
+        dossier=$1
+        fichier=$2
+    else
+        dossier=$2
+        fichier=$1
+    fi
+
+    if [ "$choix" == "1" ];
+    then
+        file_name_change $fichier $new_name
+    elif [ "$choix" == "2" ];
+    then
+        file_name_change $dossier $new_name
     else
         echo "[ERR] Choix invalide!"
     fi
 
-    return $resolu
+    return true
 }
 
 ### Fonction gérant le cas 3
@@ -259,27 +250,28 @@ function cas_5 {
 # => Dans le cas 3 et 4 :  $1 (cas 4) ou $2 (cas 3) correspond juste au chemin absolu vers le repertoire où le fichier a été supprimé
 # $3 type de conflit
 function conflit {
-    resolu=1
+    resolu=0
     numero_conflit=$3
-    while [ $resolu -eq 1 ];
+    while [ $resolu -eq 0 ];
     do
         ### Selection du type de conflit : choix 1 --> Les deux fichiers ont été modifié depuis la dernière synchro.
         if [ $numero_conflit -eq 1 ]; then
-            resolu=$(cas_1 $1 $2)
+            cas_1 $1 $2
         ### Sélection du type de conflit : choix 2 --> un fichier à le même nom qu'un répertoire
         elif [ $numero_conflit -eq 2 ]; then
-            resolu=$(cas_2 $1 $2)
+            cas_2 $1 $2
         ### Sélection du type de conflit : choix 3 -->  Si le fichier a été modifié en local et supprimer en distant
         elif [ $numero_conflit -eq 3 ]; then
-            resolu=$(cas_3 $1 $2)
+            cas_3 $1 $2
         ### Sélection du type de conflit : choix 4 -->  Si le fichier a été modifié en distant et supprimer en local
         elif [ $numero_conflit -eq 4 ]; then
-            resolu=$(cas_4 $1 $2)
+            cas_4 $1 $2
         ### Sélection du type de conflit : choix 5 -->  Deux fichier ont été crée avec le même nom
         elif [ $numero_conflit -eq 5 ]; then
-           resolu=$(cas_5 $1 $2)
+            cas_5 $1 $2
         fi
+        resolu=$?
     done
 }
 
-conflit $@
+conflit $2 $3 $4

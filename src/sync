@@ -65,21 +65,53 @@ function sync {
     if [ -d $PWD/.sync ]; then
         local=$PWD
         distant=$(cat $local/.sync/remote)
-
-        echo "[INFO] Synchronisation en cours..."
+        sync_path=$(get_lib sync)
+        conflit_path=$(get_lib conflit)
+        continuer=1
+        reponse="undefined"
 
         # S'il n'y a pas de confltits dans les deux sens
-        sync_path=$(get_lib sync)
-        conflits=$($sync_path conflits $local)
-        if [[ $($sync_path conflits $local) -eq 0 && $($sync_path conflits $distant) -eq 0 ]]; then
+        while [ $continuer -eq 1 ]
+        do
+            conflits_locaux=$($sync_path conflits $local)
+            conflits_distants=$($sync_path conflits $distant)
+            conflits=$(echo $conflits_locaux $conflits_distants | sort | uniq)
+            if [ $(echo $conflits | wc -c) -gt 1 ]; then
+                echo "[WARN] Des conflits ont été trouvés."
+                if [ "$reponse" == "undefined" ]; then
+                    echo "[INFO] Voulez-vous corriger les conflits ? (oui|non) "
+                    read reponse
+                fi
+                if [ "$reponse" == "oui" ]; then
+                    echo "[WARN] Des conflits ont été trouvés."
+                    echo "[INFO] Résolution des conflits en cours..."
 
-            # Effectuer les mise à jour à partir des fichiers diff
-            # TODO
+                    for conflit in $conflits
+                    do
+                        err_code=$(echo $conflit | cut -d">" -f1)
+                        file_name=$(echo $conflit | cut -d">" -f2)
+                        local_path=$local/$file_name
+                        distant_path=$distant/$file_name
+                        echo "[RES][${err_code}] ${file_name}"
+                        $(dirname $0)/lib/conflit $conflit_path $local_path $distant_path $err_code
+                    done
 
-            echo "[INFO] Synchronisation terminée."
-        else
-            echo "[ERR] Des conflits n'ont pas été résolus."
-        fi
+                    echo "[INFO] Résolution des conflits terminée."
+                else
+                    echo "[ERR] Des conflits n'ont pas été corrigés."
+                    continuer=0
+                fi
+            else
+                echo "[INFO] Aucun conflit trouvé."
+                echo "[INFO] Synchronisation en cours..."
+
+                # Effectuer les mise à jour à partir des fichiers diff
+                # TODO
+
+                echo "[INFO] Synchronisation terminée."
+                continuer=0
+            fi
+        done
     else
         echo "[ERR] Ce dossier n'est pas synchronisé."
     fi
