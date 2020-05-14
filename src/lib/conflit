@@ -51,7 +51,7 @@ function delete {
         read verification
         if [ "$verification" == "oui" ];
         then
-            cp $path_save/$name $path_delete/$name
+            cp -r $path_save/$name $path_delete/$name
             resolu=0
             continuer=0
         elif [ "$verification" == "non" ];
@@ -68,18 +68,13 @@ function delete {
 
 ### Sauvegarde des deux fichier en changeant le nom de l'un d'eux (cas 1)
 # $1 chemin vers le fichier en conflit local
-# $2 chemin vers le fichier en conflit distant
 function double_save {
     new_name=$(name_change $1) # On renomme obligatoirement le fichier local
     file_path_local=$(dirname $1) # chemin vers le fichier > /path/dir/sync
     file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
-    file_path_distant=$(dirname $2) # chemin vers le fichier > /path/dir/sync
     
     mv $file_path_local/$file_name $file_path_local/$new_name ### changement de nom dans l'ordi
     echo "[INFO] Changement de nom réalisé"
-    cp $file_path_local/$new_name $file_path_distant/$new_name ### path+new_name pour en faire la copie dans le distant
-    cp $file_path_distant/$file_name $file_path_local/$file_name
-    echo "[INFO] Synchronisation des fichiers réalisés"
 
     return 0
 }
@@ -114,7 +109,7 @@ function modif_ou_supp {
     then
         file_path_supp=$2
         
-        cp $file_path_exist/$name_file $file_path_supp/$name_file
+        cp -r $file_path_exist/$name_file $file_path_supp/$name_file
         echo "[INFO] Copie réalisée."
     elif [ $choix -eq "2" ];
     then
