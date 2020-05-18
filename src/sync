@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 # Retourne le chemin d'un module
 #
 # $1 nom du module
@@ -7,6 +8,7 @@ function get_lib {
     clone_path=$(dirname $0)
     echo $clone_path/lib/$1
 }
+
 
 # Initialise la synchronisation entre les dossier
 #
@@ -49,6 +51,7 @@ function init {
     fi
 }
 
+
 # Affiche les modification depuis la dernière synchronisation
 function diff {
     journal_path=$(get_lib journal)
@@ -63,6 +66,30 @@ function diff {
         echo "[INFO] Aucune modification n'a été apportée." 
     fi
 }
+
+
+# Cette fonction permet d'afficher tous les conflits
+#
+# $1 Dossier local
+function conflits {
+    local=$PWD
+    distant=$(cat $local/.sync/remote)
+    sync_path=$(get_lib sync)
+
+    $sync_path conflits $local > $local/.sync/conflits
+    $sync_path conflits $distant >> $local/.sync/conflits
+    conflits=$(cat $local/.sync/conflits | sort | uniq)
+    echo $conflits | sed 's/ /\n/g' > $local/.sync/conflits
+
+    if [ "$(cat $local/.sync/conflits)" != "" ]; then
+        cat $local/.sync/conflits
+    else
+        echo "[INFO] Aucun conflit trouvé."
+    fi
+
+    rm $local/.sync/conflits
+}
+
 
 # Cette fonction permet de mettre à jour les dossiers
 #
@@ -79,9 +106,10 @@ function sync {
         # S'il n'y a pas de confltits dans les deux sens
         while [ $continuer -eq 1 ]
         do
-            conflits_locaux=$($sync_path conflits $local)
-            conflits_distants=$($sync_path conflits $distant)
-            conflits=$(echo $conflits_locaux $conflits_distants | sort | uniq)
+            $sync_path conflits $local > $local/.sync/conflits
+            $sync_path conflits $distant >> $local/.sync/conflits
+            conflits=$(cat $local/.sync/conflits | sort | uniq)
+
             if [ $(echo $conflits | wc -c) -gt 1 ]; then
                 echo "[WARN] Des conflits ont été trouvés."
                 echo "---------------------------------------------------"
@@ -119,11 +147,13 @@ function sync {
                 echo "[INFO] Synchronisation terminée."
                 continuer=0
             fi
+            rm $local/.sync/conflits
         done
     else
         echo "[ERR] Ce dossier n'est pas synchronisé."
     fi
 }
+
 
 # Fonction main du projet
 #
@@ -133,14 +163,13 @@ function main {
     if [ $command == "init" ]; then
         init $2
         exit
-    fi
-
-    if [ $command == "diff" ]; then
+    elif [ $command == "diff" ]; then
         diff
         exit
-    fi
-
-    if [ $command == "sync" ]; then
+    elif [ $command == "conflits" ]; then
+        conflits
+        exit
+    elif [ $command == "sync" ]; then
         sync
         exit
     fi
@@ -148,6 +177,7 @@ function main {
     src=$(dirname $0)
     cat $src/help.md
 }
+
 
 if [ $# -eq 0 ]; then
     echo "Ce script attend un argument."

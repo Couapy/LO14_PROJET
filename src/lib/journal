@@ -1,5 +1,14 @@
 #!/bin/bash
 
+
+# Cette fonction retourne le chemin relatif d'un module du projet
+#
+# $1 nom de la librairie à charger
+function get_lib {
+    echo "$(dirname $0)/$1"
+}
+
+
 # Cette fonction permet de faire un arbre du dossier récursivement
 #
 # $1 dossier à lister récursivement
@@ -14,6 +23,7 @@ function browse {
         fi
     done
 }
+
 
 # Cette fonction permet de générer un journal
 #
@@ -37,6 +47,7 @@ function journalisation {
     done
     echo "$journal"
 }
+
 
 # Cette fonction permet de générer le rapport de synchronisation en local uniquement
 # (par rapport à la dernière synchronisation)
@@ -90,12 +101,45 @@ function diff {
     fi
 }
 
+# Cette fonction ajoute une entrée dans le journal
+#
+# $1 dossier synchronisé
+# $2 fichier à mettre à jour
+function add_journal {
+    nouveau_journal=$(cat $1/.sync/journal)
+    if [ -d $1/$2 ]; then
+        md5=""
+    else
+        md5=$(md5sum $1/$2 | cut -d" " -f1)
+    fi
+    nouveau_journal="${nouveau_journal} ${2};${md5}"
+    
+    echo $nouveau_journal | sed 's/ /\n/g' > $1/.sync/journal
+}
+
+# Cette fonction supprime une entrée dans le jounal
+#
+# $1 dossier synchronisé
+# $2 fichier à mettre à jour
+function rem_journal {
+    nouveau_journal=$(cat $1/.sync/journal | egrep -v "^${2};")
+    echo $nouveau_journal | sed 's/ /\n/g' > $1/.sync/journal
+}
+
+
 if [ $# -gt 1 ]; then
     commande=$1
     if [ $commande = "get" ]; then
         journalisation $2
+        exit
     elif [ $commande = "diff" ]; then
         diff $2
+        exit
+    elif [ $commande = "add" ]; then
+        add_journal $2 $3
+        exit
+    elif [ $commande = "rem" ]; then
+        rem_journal $2 $3
         exit
     else
         echo "[ERR] Cette commande n'existe pas."

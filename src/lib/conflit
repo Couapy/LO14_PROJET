@@ -1,24 +1,28 @@
 #!/bin/bash
 
 
-### Revoir la mise en page [WARN] [INFO] [ERR] (optionnel)
-
-
 ### $1 chemin absolu du fichier local créant conflit
 ### $2 chemin absolu du fichier distant créant conflit
 ### $3 cas du conflit
 # Différent cas : (le numéro indiquer correspond à la valeur de $3 dans le script principal)
 #     1 - Les deux fichiers ont été modifié depuis la dernière synchro
 #     2 - Un fichier à le même nom qu'un répertoire
-#     3 - Fichier modifié en local et supprimé en distant [!!] ici $2 correspond au chemin absolu ou se trouvé le fichié supprimé distant
-#     4 - Fichier modifié en distant et supprimé en local [!!] ici $1 correspond au chemin absolu ou se trouvé le fichié supprimé distant
-#     5 - Deux Fichiers ont été créés avec le même nom
+#     3 - Fichier modifié en local et supprimé en distant (ou l'inverse)
+#     4 - Deux Fichiers ont été créés avec le même nom
 
-### $1, nom du fichier qui pose problème
-### $2 type de conflit
 
-### Déclaration d'un nouveau nom
+# Cette fonction retourne le chemin relatif d'un module du projet
+#
+# $1 nom de la librairie à charger
+function get_lib {
+    echo "$(dirname $0)/$1"
+}
+
+
+# Déclaration d'un nouveau nom
+#
 # $1 chemin absolu du fichier
+# new_name variable globale
 function name_change {
     chemin=$(dirname $1)
     continuer=1
@@ -28,14 +32,16 @@ function name_change {
         read new_name
         if [ -e $chemin/$new_name ];
         then
-            echo "[ERR] Ce nom est déjà attribué à un autre fichier ou répertoire. \n"
+            echo "[ERR] Ce nom est déjà attribué à un autre fichier ou répertoire."
         else
             continuer=0
         fi
     done
 }
 
-### Ecrase le fichier se trouvant sur le pc par celui de la machine distante (cas 1)
+
+# Ecrase le fichier se trouvant sur le pc par celui de la machine distante (cas 1)
+#
 # $1 chemin vers le fichier qui va être écrasé
 # $2 chemin vers le fichier en qui va être garder
 # $3 phrase prompt
@@ -66,20 +72,25 @@ function delete {
     return $resolu   
 }
 
-### Sauvegarde des deux fichier en changeant le nom de l'un d'eux (cas 1)
+
+# Sauvegarde des deux fichier en changeant le nom de l'un d'eux (cas 1)
+#
 # $1 chemin vers le fichier en conflit local
 function double_save {
-    new_name=$(name_change $1) # On renomme obligatoirement le fichier local
+    new_name=""
+    name_change $1 # On renomme obligatoirement le fichier local
     file_path_local=$(dirname $1) # chemin vers le fichier > /path/dir/sync
     file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
     
-    mv $file_path_local/$file_name $file_path_local/$new_name ### changement de nom dans l'ordi
+    mv $file_path_local/$file_name $file_path_local/$new_name # changement de nom dans l'ordi
     echo "[INFO] Changement de nom réalisé"
 
-    return 0
+    return 1
 }
 
-### Changement du nom du fichier ou repertoire (cas 2)
+
+# Changement du nom du fichier ou repertoire (cas 2)
+#
 # $1 chemin vers le fichier ou répertoire dont on souhaite changer le nom
 # $2 Nouveau nom du fichier
 function file_name_change {
@@ -90,12 +101,14 @@ function file_name_change {
     mv $path_change_file/$file_name $path_change_file/$new_name
 }
 
-### Traitement des cas 3 et 4 qui abouti soit à la sauvegarde du fichier soit à sa supression
+
+# Traitement des cas 3 et 4 qui abouti soit à la sauvegarde du fichier soit à sa supression
+#
 # $1 chemin vers le fichier existant
 # $2 chemin vers le repertoire où se trouvait le fichier qui a été supprimé
 # $3 prompt en fonction du traitement du cas 3 ou 4
 function modif_ou_supp {
-    ### Proposition de choix pour l'utilisateur
+    # Proposition de choix pour l'utilisateur
     name_file=$(basename $1)
     file_path_exist=$(dirname $1)
 
@@ -137,12 +150,15 @@ function modif_ou_supp {
     return $resolu
 }
 
-### Fonction gérant le cas 1
+
+# Fonction gérant le cas 1
+#
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
 function cas_1 {
     name_file=$(basename $1)
-    resolu=1
 
-    ### Proposition de choix pour utilisateur
+    # Proposition de choix pour utilisateur
     echo "[INFO] Les deux fichiers $name_file ont été crée ou modifié depuis la dernière synchronisation."
     echo "Que voulez vous faire :"
     echo " 1 - Donner un autre nom à la version présente sur ce pc"
@@ -151,32 +167,46 @@ function cas_1 {
     read choix
     phrase_supp_distant="[WARN] Etes-vous sûr de vouloir écraser la version disponible sur le pc distant (oui / non) :"
     phrase_supp_local="[WARN] Etes-vous sûr de vouloir écraser la version disponible sur ce pc (oui / non) :"
-    ### Choix : on garde les deux donc on change un des noms
+    # Choix : on garde les deux donc on change un des noms
     if [ $choix -eq 1 ];
     then 
-        resolu=$(double_save $1 $2)
-    ### On ecrase sur le pc distant
+        double_save $1 $2
+        resolu=$?
+    # On ecrase sur le pc distant
     elif [ $choix -eq 2 ];
     then
-        resolu=$(delete $2 $1 $phrase_supp_distant)
-    ### On écrase sur le pc qui lance le sync
+        delete $2 $1 $phrase_supp_distant
+        resolu=$?
+    # On écrase sur le pc qui lance le sync
     elif [ $choix -eq 3 ];
     then
-        resolu=$(delete $1 $2 $phrase_supp_local)
+        delete $1 $2 $phrase_supp_local
+        resolu=$?
     else
         echo "[ERR]Choix non valide."
+        resolu=0
+    fi
+
+    if [ $resolu -eq 1 ];
+    then
+        journal_path=$(get_lib journal)
+        # $journal_path rem 
     fi
     echo "[INFO] Conflit corrigé"
 
     return $resolu
 }
 
-### Fonction gérant le cas 2
+
+# Fonction gérant le cas 2
+#
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
 function cas_2 {
     name_file=$(basename $1)
     new_name=""
 
-    ### Proposition de choix pour l'utilisateur
+    # Proposition de choix pour l'utilisateur
     echo "${name_file} est à la fois un ficher et un répertoire. Changer le nom du :"
     echo " 1 - fichier"
     echo " 2 - répertoire"
@@ -205,68 +235,71 @@ function cas_2 {
     return 1
 }
 
-### Fonction gérant le cas 3
+
+# Fonction gérant le cas 3
+#
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
 function cas_3 {
-    prompt="se trouve sur le pc local et a été supprimé sur le pc distant"
-    resolu=$(modif_ou_supp $1 $2 $prompt)
+    if [ -e $1 ]; then
+        prompt="se trouve sur le pc local et a été supprimé sur le pc distant"
+        modif_ou_supp $1 $2 $prompt
+    else
+        prompt="se trouve sur le pc distant et a été supprimé sur le pc local"
+        modif_ou_supp $2 $1 $prompt
+    fi
+    resolu=$?
     echo "[INFO] Conflit corrigé"
 
-    return $resolu   
+    return $resolu  
 }
 
-### Fonction gérant le cas 4
+
+# Fonction gérant le cas 4
+#
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
 function cas_4 {
-    prompt="se trouve sur le pc distant et a été supprimé sur le pc local"
-    resolu=$(modif_ou_supp $2 $1 $prompt)
-    echo "[INFO] Conflit corrigé"
-
-    return $resolu
-}
-
-### Fonction gérant le cas 5
-function cas_5 {
     md5_local=$(md5sum $1 | cut -d' ' -f1)
     md5_distant=$(md5sum $2 | cut -d' ' -f1)
+
     if [ "$md5_local" == "$md5_distant" ];
     then
         echo "[INFO] Il n'y pas de conflit"
+        resolu=1
     else
-        ### On revient au cas 1, on doit soit garder les deux en changeant un des nom soit en supprimer 1
+        # On revient au cas 1, on doit soit garder les deux en changeant un des nom soit en supprimer 1
         conflit $1 $2 1
+        resolu=$?
     fi
-    resolu=0
 
     return $resolu
 }
 
-### Main script
+
+# Main script
+#
 # $1 chemin vers le fichier en conflit local
 # $2 chemin vers le fichier en conflit distant
-# => Dans le cas 3 et 4 :  $1 (cas 4) ou $2 (cas 3) correspond juste au chemin absolu vers le repertoire où le fichier a été supprimé
 # $3 type de conflit
 function conflit {
     resolu=0
     numero_conflit=$3
     while [ $resolu -eq 0 ];
     do
-        ### Selection du type de conflit : choix 1 --> Les deux fichiers ont été modifié depuis la dernière synchro.
         if [ $numero_conflit -eq 1 ]; then
             cas_1 $1 $2
-        ### Sélection du type de conflit : choix 2 --> un fichier à le même nom qu'un répertoire
         elif [ $numero_conflit -eq 2 ]; then
             cas_2 $1 $2
-        ### Sélection du type de conflit : choix 3 -->  Si le fichier a été modifié en local et supprimer en distant
         elif [ $numero_conflit -eq 3 ]; then
             cas_3 $1 $2
-        ### Sélection du type de conflit : choix 4 -->  Si le fichier a été modifié en distant et supprimer en local
         elif [ $numero_conflit -eq 4 ]; then
             cas_4 $1 $2
-        ### Sélection du type de conflit : choix 5 -->  Deux fichier ont été crée avec le même nom
-        elif [ $numero_conflit -eq 5 ]; then
-            cas_5 $1 $2
         fi
         resolu=$?
     done
+    return 1
 }
+
 
 conflit $2 $3 $4

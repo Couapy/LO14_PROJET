@@ -1,11 +1,13 @@
 #!/bin/bash
 
+
 # Cette fonction retourne le chemin relatif d'un module du projet
 #
 # $1 nom de la librairie à charger
 function get_lib {
     echo "$(dirname $0)/$1"
 }
+
 
 # Cette fonction détecte les conflits
 #
@@ -34,20 +36,20 @@ function detecter_conflit {
         # Les fichiers créés
         if [ "$status" == "ADD" ]; then
             # Si le fichier a été créé dans les deux dossiers
-            if [ "$(cat $diff_distant_path | egrep "^(ADD|${fichier})")" != "" ]; then
+            if [ "$(cat $diff_distant_path | egrep "^(ADD#${fichier})")" != "" ]; then
                 # Si le fichier a le même nom qu'un dossier
                 if [[ (-f $local/$fichier && -d $distant/$fichier) || (-d $local/$fichier && -f $distant/$fichier) ]]; then
                     echo "2>${fichier}"
                 # Si ce sont deux fichiers
                 else
-                    echo "5>${fichier}"
+                    echo "4>${fichier}"
                 fi
             fi
         # Les fichiers supprimés
         elif [ "$status" == "REM" ]; then
             # Si le fichier a été supprimé et modifié dans les deux dossiers
             if [ "$(cat $diff_distant_path | egrep "^(MOD#${fichier})")" != "" ]; then
-                echo "4>${fichier}"
+                echo "3>${fichier}"
             fi
         # Les fichiers modifiés
         elif [ "$status" == "MOD" ]; then
@@ -61,6 +63,7 @@ function detecter_conflit {
     rm $diff_local_path
     rm $diff_distant_path
 }
+
 
 # Cette fonction permet de synchroniser deux dossier qui
 # n'ont pas de conflits
