@@ -55,13 +55,11 @@ function init {
 # Affiche les modification depuis la dernière synchronisation
 function diff {
     journal_path=$(get_lib journal)
-    resultat=$($journal_path diff $PWD)
-    if [ "$resultat" != "" ]; then
+    $journal_path diff $PWD
+    diff_path=$PWD/.sync/diff
+    if [ "$(cat $diff_path)" != "" ]; then
         echo '[INFO] Les modifications suivantes ont été faites :'
-        for ligne in $resultat
-        do
-            echo $ligne
-        done
+        cat $diff_path
     else
         echo "[INFO] Aucune modification n'a été apportée." 
     fi

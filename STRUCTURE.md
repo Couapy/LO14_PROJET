@@ -11,6 +11,12 @@ Ce fichier permet de mieux comprendre comment le projet est structuré.
       * La chaine ";" sépare le chemin du fichier/dossier de son md5
   * remote
     * Contient le chemin absolu vers le dossier distant
+  * diff
+    * Contient toutes les différences actuelles
+  * journal_temp
+    * journal actuel du dossier
+  * ignore
+    * Liste de modifications à ignorer
 
 ## Sources
 

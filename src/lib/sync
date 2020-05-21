@@ -19,15 +19,13 @@ function get_lib {
 function detecter_conflit {
     local=$1
     distant=$(cat $1/.sync/remote)
-
     journal_path=$(get_lib journal)
-    conflits=""
 
     # On génère les différences
     diff_local_path="${local}/.sync/diff"
-    $journal_path diff $local > $diff_local_path
+    $journal_path diff $local
     diff_distant_path="${distant}/.sync/diff"
-    $journal_path diff $distant > $diff_distant_path
+    $journal_path diff $distant
 
     for diff in $(cat $diff_local_path)
     do
@@ -59,9 +57,6 @@ function detecter_conflit {
             fi
         fi
     done
-
-    rm $diff_local_path
-    rm $diff_distant_path
 }
 
 
@@ -74,8 +69,10 @@ function sync {
     local=$1
     distant=$(cat $local/.sync/remote)
     journal_path=$(get_lib journal)
+    $journal_path diff $local
+    $journal_path diff $distant
 
-    for diff in $($journal_path diff $local)
+    for diff in $(cat $local/.sync/diff)
     do
         type=$(echo $diff | cut -d"#" -f1)
         fichier=$(echo $diff | cut -d"#" -f2)
@@ -92,7 +89,7 @@ function sync {
         fi
     done
 
-    for diff in $($journal_path diff $distant)
+    for diff in $(cat $distant/.sync/diff)
     do
         type=$(echo $diff | cut -d"#" -f1)
         fichier=$(echo $diff | cut -d"#" -f2)

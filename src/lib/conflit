@@ -19,6 +19,19 @@ function get_lib {
 }
 
 
+# Retourne le chemin absolu du dossier synchronisé
+#
+# $1 chemin absolu d'un fichier synchronisé
+function get_root_dir {
+    root=$(dirname $1)
+    while [ ! -e $root/.sync ]
+    do
+        root=$(dirname $root)
+    done
+    return $root
+}
+
+
 # Déclaration d'un nouveau nom
 #
 # $1 chemin absolu du fichier
@@ -44,7 +57,6 @@ function name_change {
 #
 # $1 chemin vers le fichier qui va être écrasé
 # $2 chemin vers le fichier en qui va être garder
-# $3 phrase prompt
 function delete {
     path_delete=$(dirname $1)
     path_save=$(dirname $2)
@@ -53,8 +65,7 @@ function delete {
     while [ $continuer -eq 1 ];
     do
         # On affiche la demande et on lit le choix de l'utilisateur
-        echo $3
-        read verification
+        read -p "[WARN] Etes-vous sûr de vouloir supprimer le fichier $name ? (oui|non) " verification
         if [ "$verification" == "oui" ];
         then
             cp -r $path_save/$name $path_delete/$name
@@ -112,7 +123,6 @@ function modif_ou_supp {
     name_file=$(basename $1)
     file_path_exist=$(dirname $1)
 
-    echo "$name_file $3"
     echo "Que souhaitez vous faire :"
     echo " 1 - Garder et synchroniser le fichier modifié"
     echo " 2 - Supprimer le fichier "
@@ -157,6 +167,9 @@ function modif_ou_supp {
 # $2 chemin vers le fichier en conflit distant
 function cas_1 {
     name_file=$(basename $1)
+    journal_path=$(get_lib journal)
+    # root=$(get_root_dir /chemin/absolu/dossier/fichier_a_ignorer)
+    # $journal_path ignore add $root ADD|dossier/fichier_a_ignorer
 
     # Proposition de choix pour utilisateur
     echo "[INFO] Les deux fichiers $name_file ont été crée ou modifié depuis la dernière synchronisation."
@@ -165,22 +178,20 @@ function cas_1 {
     echo " 2 - Ecraser la version disponible sur le pc distant"
     echo " 3 - Ecraser le fichier disponible sur ce pc "
     read choix
-    phrase_supp_distant="[WARN] Etes-vous sûr de vouloir écraser la version disponible sur le pc distant (oui / non) :"
-    phrase_supp_local="[WARN] Etes-vous sûr de vouloir écraser la version disponible sur ce pc (oui / non) :"
     # Choix : on garde les deux donc on change un des noms
     if [ $choix -eq 1 ];
-    then 
+    then
         double_save $1 $2
         resolu=$?
     # On ecrase sur le pc distant
     elif [ $choix -eq 2 ];
     then
-        delete $2 $1 $phrase_supp_distant
+        delete $2 $1
         resolu=$?
     # On écrase sur le pc qui lance le sync
     elif [ $choix -eq 3 ];
     then
-        delete $1 $2 $phrase_supp_local
+        delete $1 $2
         resolu=$?
     else
         echo "[ERR]Choix non valide."
@@ -241,17 +252,18 @@ function cas_2 {
 # $1 chemin vers le fichier en conflit local
 # $2 chemin vers le fichier en conflit distant
 function cas_3 {
+    file_name=$(basename $1)
     if [ -e $1 ]; then
-        prompt="se trouve sur le pc local et a été supprimé sur le pc distant"
-        modif_ou_supp $1 $2 $prompt
+        echo "$file_name se trouve sur le pc local et a été supprimé sur le pc distant"
+        modif_ou_supp $1 $2
     else
-        prompt="se trouve sur le pc distant et a été supprimé sur le pc local"
-        modif_ou_supp $2 $1 $prompt
+        echo "$file_name se trouve sur le pc distant et a été supprimé sur le pc local"
+        modif_ou_supp $2 $1
     fi
     resolu=$?
     echo "[INFO] Conflit corrigé"
 
-    return $resolu  
+    return $resolu
 }
 
 
