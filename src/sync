@@ -115,7 +115,7 @@ function sync {
                 echo "---------------------------------------------------"
                 if [ "$reponse" == "undefined" ]; then
                     echo "[INFO] Voulez-vous corriger les conflits ? (oui|non) "
-                    read reponse
+                    read -p "> " reponse
                 fi
                 if [ "$reponse" == "oui" ]; then
                     echo "[INFO] Résolution des conflits en cours..."

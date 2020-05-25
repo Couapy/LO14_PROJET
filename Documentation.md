@@ -7,10 +7,10 @@ dans notre programme.
 
 Les types de conflits sont les suivants :
 
-1. Si on a deux fichiers créés avec le même nom
+1. Si on a un fichier modifié des deux côtés
 2. Si on a un fichier et un dossier créés qui ont le même nom
 3. Si on a un fichier modifié et supprimé
-4. Si on a un fichier modifié des deux côtés
+4. Si on a deux fichiers créés avec le même nom
 
 ## Comment détecter les conflits
 

@@ -43,31 +43,29 @@ function name_change {
 # Ecrase le fichier se trouvant sur le pc par celui de la machine distante (cas 1)
 #
 # $1 chemin vers le fichier qui va être écrasé
-# $2 chemin vers le fichier en qui va être garder
-function delete {
-    path_delete=$(dirname $1)
-    path_save=$(dirname $2)
-    name=$(basename $2)
+# $2 Type de l'ignore
+function confirm_squash {
+    name=$(basename $1)
     continuer=1
     while [ $continuer -eq 1 ];
     do
         # On affiche la demande et on lit le choix de l'utilisateur
-        read -p "[WARN] Etes-vous sûr de vouloir supprimer le fichier $name ? (oui|non) " verification
+        read -p "[WARN] Etes-vous sûr de vouloir écraser le fichier $name ? (oui|non) " verification
         if [ "$verification" == "oui" ];
         then
-            cp -r $path_save/$name $path_delete/$name
-            resolu=0
+            $journal_path ignore $2 $1
             continuer=0
+            resolu=1
         elif [ "$verification" == "non" ];
         then
             continuer=0
-            resolu=1
+            resolu=0
         else
             echo "[ERR] Entrée invalide"
-        fi 
+        fi
     done
 
-    return $resolu   
+    return $resolu
 }
 
 
@@ -112,11 +110,11 @@ function modif_ou_supp {
     echo "Que souhaitez vous faire :"
     echo " 1 - Garder et synchroniser le fichier modifié"
     echo " 2 - Supprimer le fichier "
-    read choix
+    read -p "> " choix
 
     if [ $choix -eq 1 ];
     then
-        #> ignore REM $2
+        $journal_path ignore REM $2
         resolu=1
     elif [ $choix -eq "2" ];
     then
@@ -127,7 +125,7 @@ function modif_ou_supp {
             read verification
             if [ "$verification" == "oui" ];
             then
-                #> ignore MOD $1
+                $journal_path ignore MOD $1
                 resolu=1
                 continuer=0    
             elif [ "$verification" == "non" ];
@@ -151,40 +149,45 @@ function modif_ou_supp {
 function cas_1 {
     name_file=$(basename $1)
     journal_path=$(get_lib journal)
-    # root=$(get_root_dir /chemin/absolu/dossier/fichier_a_ignorer)
-    # $journal_path ignore add $root ADD|dossier/fichier_a_ignorer
+    md5_local=$(md5sum $1 | cut -d' ' -f1)
+    md5_distant=$(md5sum $2 | cut -d' ' -f1)
 
-    # Proposition de choix pour utilisateur
-    echo "[INFO] Les deux fichiers $name_file ont été crée ou modifié depuis la dernière synchronisation."
-    echo "Que voulez vous faire :"
-    echo " 1 - Donner un autre nom à la version présente sur ce pc"
-    echo " 2 - Ecraser la version disponible sur le pc distant"
-    echo " 3 - Ecraser le fichier disponible sur ce pc "
-    read choix
-    # Choix : on garde les deux donc on change un des noms
-    if [ $choix -eq 1 ];
+    if [ "$md5_local" == "$md5_distant" ];
     then
-        #> ignore REM $1
-        double_save $1 $2
-        resolu=$?
-    # On ecrase sur le pc distant
-    elif [ $choix -eq 2 ];
-    then
-        #> ignore MOD $2
-        delete $2 $1
-        resolu=$?
-    # On écrase sur le pc qui lance le sync
-    elif [ $choix -eq 3 ];
-    then
-        #> ignore MOD $1
-        delete $1 $2
-        resolu=$?
+        $journal_path ignore MOD $1
+        echo "[INFO] Il n'y pas de conflit, les fichiers sont identiques"
+        resolu=1
     else
-        echo "[ERR]Choix non valide."
-        resolu=0
-    fi
+        # Proposition de choix pour utilisateur
+        echo "[INFO] Les deux fichiers $name_file ont été créés ou modifiés depuis la dernière synchronisation."
+        echo "Que voulez-vous faire :"
+        echo " 1 - Donner un autre nom à la version présente dans ce dossier"
+        echo " 2 - Ecraser la version disponible dans le dossier distant"
+        echo " 3 - Ecraser le fichier disponible dans ce dossier"
+        read -p "> " choix
+        # Choix : on garde les deux donc on change un des noms
+        if [ $choix -eq 1 ];
+        then
+            $journal_path ignore REM $1
+            double_save $1 $2
+            resolu=$?
+        # On ecrase sur le pc distant
+        elif [ $choix -eq 2 ];
+        then
+            confirm_squash $2 MOD
+            resolu=$?
+        # On écrase sur le pc qui lance le sync
+        elif [ $choix -eq 3 ];
+        then
+            confirm_squash $1 MOD
+            resolu=$?
+        else
+            echo "[ERR]Choix non valide."
+            resolu=0
+        fi
 
-    echo "[INFO] Conflit corrigé"
+        echo "[INFO] Conflit corrigé"
+    fi
 
     return $resolu
 }
@@ -199,10 +202,10 @@ function cas_2 {
     new_name=""
 
     # Proposition de choix pour l'utilisateur
-    echo "${name_file} est à la fois un ficher et un répertoire. Changer le nom du :"
-    echo " 1 - fichier"
-    echo " 2 - répertoire"
-    read choix
+    echo "${name_file} est à la fois un fichier et un dossier. Changer le nom du :"
+    echo " 1 - Fichier"
+    echo " 2 - Dossier"
+    read -p "> "choix
     name_change $1
 
     if [ -d $1 ];
@@ -258,7 +261,8 @@ function cas_4 {
 
     if [ "$md5_local" == "$md5_distant" ];
     then
-        echo "[INFO] Il n'y pas de conflit"
+        $journal_path ignore ADD $1
+        echo "[INFO] Il n'y pas de conflit, les fichiers sont identiques"
         resolu=1
     else
         # On revient au cas 1, on doit soit garder les deux en changeant un des nom soit en supprimer 1
@@ -294,5 +298,5 @@ function conflit {
     return 1
 }
 
-
+journal_path=$(get_lib journal)
 conflit $2 $3 $4

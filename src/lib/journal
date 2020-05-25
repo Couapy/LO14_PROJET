@@ -34,7 +34,7 @@ function get_root_dir {
     do
         root=$(dirname $root)
     done
-    return $root
+    echo $root
 }
 
 
@@ -136,8 +136,10 @@ function diff {
 # $2 Chemin absolu vers le fichier à ignorer
 function ignore {
     root=$(get_root_dir $2)
-    file_path=$(echo $1 | sed "s/${root}//g")
-    echo "$1#${file_path}" >> $root/.sync/ignore
+    file_path=$(echo $2 | cut -c$(($(echo $root | wc -c) + 1))-)
+    if [ "$(cat $root/.sync/journal | grep $file_path; )" ]; then
+        echo "$1#${file_path}" >> $root/.sync/ignore
+    fi
 }
 
 
