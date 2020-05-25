@@ -19,19 +19,6 @@ function get_lib {
 }
 
 
-# Retourne le chemin absolu du dossier synchronisé
-#
-# $1 chemin absolu d'un fichier synchronisé
-function get_root_dir {
-    root=$(dirname $1)
-    while [ ! -e $root/.sync ]
-    do
-        root=$(dirname $root)
-    done
-    return $root
-}
-
-
 # Déclaration d'un nouveau nom
 #
 # $1 chemin absolu du fichier
@@ -113,11 +100,10 @@ function file_name_change {
 }
 
 
-# Traitement des cas 3 et 4 qui abouti soit à la sauvegarde du fichier soit à sa supression
+# Traitement des cas 3 qui abouti soit à la sauvegarde du fichier soit à sa supression
 #
 # $1 chemin vers le fichier existant
-# $2 chemin vers le repertoire où se trouvait le fichier qui a été supprimé
-# $3 prompt en fonction du traitement du cas 3 ou 4
+# $2 chemin vers le fichier qui a été supprimé
 function modif_ou_supp {
     # Proposition de choix pour l'utilisateur
     name_file=$(basename $1)
@@ -130,9 +116,7 @@ function modif_ou_supp {
 
     if [ $choix -eq 1 ];
     then
-        file_path_supp=$(dirname $2)
-        cp -r $file_path_exist/$name_file $file_path_supp/$name_file
-        echo "[INFO] Copie réalisée."
+        #> ignore REM $2
         resolu=1
     elif [ $choix -eq "2" ];
     then
@@ -142,9 +126,8 @@ function modif_ou_supp {
             echo "[WARN] Etes-vous sûr de vouloir supprimer $name_file : (oui/non)"
             read verification
             if [ "$verification" == "oui" ];
-            then 
-                rm $file_path_exist/$name_file
-                echo "[INFO] Fichier supprimé"
+            then
+                #> ignore MOD $1
                 resolu=1
                 continuer=0    
             elif [ "$verification" == "non" ];
@@ -181,16 +164,19 @@ function cas_1 {
     # Choix : on garde les deux donc on change un des noms
     if [ $choix -eq 1 ];
     then
+        #> ignore REM $1
         double_save $1 $2
         resolu=$?
     # On ecrase sur le pc distant
     elif [ $choix -eq 2 ];
     then
+        #> ignore MOD $2
         delete $2 $1
         resolu=$?
     # On écrase sur le pc qui lance le sync
     elif [ $choix -eq 3 ];
     then
+        #> ignore MOD $1
         delete $1 $2
         resolu=$?
     else
@@ -198,11 +184,6 @@ function cas_1 {
         resolu=0
     fi
 
-    if [ $resolu -eq 1 ];
-    then
-        journal_path=$(get_lib journal)
-        # $journal_path rem 
-    fi
     echo "[INFO] Conflit corrigé"
 
     return $resolu

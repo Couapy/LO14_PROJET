@@ -25,6 +25,19 @@ function browse {
 }
 
 
+# Retourne le chemin absolu du dossier synchronisé
+#
+# $1 chemin absolu d'un fichier synchronisé
+function get_root_dir {
+    root=$(dirname $1)
+    while [ ! -e $root/.sync ]
+    do
+        root=$(dirname $root)
+    done
+    return $root
+}
+
+
 # Cette fonction permet de générer un journal
 #
 # $1 dossier synchronisé
@@ -119,10 +132,12 @@ function diff {
 
 # Cette fonction ajoute une entrée dans le journal
 #
-# $1 dossier synchronisé
-# $2 différence à ignorer
+# $1 ADD|REM|MOD
+# $2 Chemin absolu vers le fichier à ignorer
 function ignore {
-    echo $2 >> $1/.sync/ignore
+    root=$(get_root_dir $2)
+    file_path=$(echo $1 | sed "s/${root}//g")
+    echo "$1#${file_path}" >> $root/.sync/ignore
 }
 
 
