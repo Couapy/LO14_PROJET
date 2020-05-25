@@ -72,6 +72,10 @@ function sync {
     $journal_path diff $local
     $journal_path diff $distant
 
+    # On remet le dossier .sync dans un état synchronisé
+    $journal_path get $local > $local/.sync/journal
+    $journal_path get $local > $distant/.sync/journal
+
     for diff in $(cat $local/.sync/diff)
     do
         type=$(echo $diff | cut -d"#" -f1)
@@ -106,9 +110,6 @@ function sync {
         fi
     done
 
-    # On remet le dossier .sync dans un état synchronisé
-    $journal_path get $local > $local/.sync/journal
-    $journal_path get $local > $distant/.sync/journal
     # On nettoie les fichiers temporaires
     rm -f $local/.sync/diff
     rm -f $distant/.sync/diff
