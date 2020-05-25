@@ -130,10 +130,10 @@ function modif_ou_supp {
 
     if [ $choix -eq 1 ];
     then
-        file_path_supp=$2
-        
+        file_path_supp=$(dirname $2)
         cp -r $file_path_exist/$name_file $file_path_supp/$name_file
         echo "[INFO] Copie réalisée."
+        resolu=1
     elif [ $choix -eq "2" ];
     then
         continuer=1
@@ -145,12 +145,12 @@ function modif_ou_supp {
             then 
                 rm $file_path_exist/$name_file
                 echo "[INFO] Fichier supprimé"
-                resolu=0
+                resolu=1
                 continuer=0    
             elif [ "$verification" == "non" ];
             then
                 continuer=0
-                resolu=1
+                resolu=0
             else
                 echo "[ERR] Entrée invalide"
             fi 
