@@ -1,24 +1,186 @@
 #!/bin/bash
 
+
+# Retourne le chemin d'un module
+#
+# $1 nom du module
+function get_lib {
+    clone_path=$(dirname $0)
+    echo $clone_path/lib/$1
+}
+
+
+# Initialise la synchronisation entre les dossier
+#
+# $1 chemin vers le nouveau dossier à cloner
+function init {
+    if [ "$1" != "" ]; then
+        local=$PWD
+        distant=$(readlink -f $1)
+        if ! [ -d $distant ]; then
+            if [ "$(echo "${distant}/" | egrep "^(${local}/)")" = "" ]; then
+                if ! [ -d $local/.sync ]; then
+                    echo "[INFO] Initialisation en cours..."
+
+                    # Copie des fichiers
+                    cp -pr $local $distant
+                    # On créé un .sync dans les deux dossies
+                    #   Génère le journal dans les deux dossiers
+                    mkdir $local/.sync
+                    journal_path=$(get_lib journal)
+                    journal=$($journal_path get $local > $local/.sync/journal)
+
+                    cp -r $local/.sync $distant/.sync
+
+                    #   Génère le fichier remote dans les deux dossiers
+                    echo $distant > $local/.sync/remote
+                    echo $local > $distant/.sync/remote
+
+                    echo "[INFO] Initialisation terminé..."
+                else
+                    echo "[ERR] Le dossier actuel est déjà synchronisé."
+                fi
+            else
+                echo "[ERR] Le dossier distant se trouve dans le dossier à cloner."
+            fi
+        else
+            echo "[ERR] Le dossier ${distant} existe déjà."
+        fi
+    else
+        echo "[ERR] Veuillez transmettre un dossier en argument."
+    fi
+}
+
+
+# Affiche les modification depuis la dernière synchronisation
+function diff {
+    journal_path=$(get_lib journal)
+    $journal_path diff $PWD
+    diff_path=$PWD/.sync/diff
+    if [ "$(cat $diff_path)" != "" ]; then
+        echo '[INFO] Les modifications suivantes ont été faites :'
+        cat $diff_path
+    else
+        echo "[INFO] Aucune modification n'a été apportée." 
+    fi
+}
+
+
+# Cette fonction permet d'afficher tous les conflits
+#
+# $1 Dossier local
+function conflits {
+    local=$PWD
+    distant=$(cat $local/.sync/remote)
+    sync_path=$(get_lib sync)
+
+    $sync_path conflits $local > $local/.sync/conflits
+    $sync_path conflits $distant >> $local/.sync/conflits
+    conflits=$(cat $local/.sync/conflits | sort | uniq)
+    echo $conflits | sed 's/ /\n/g' > $local/.sync/conflits
+
+    if [ "$(cat $local/.sync/conflits)" != "" ]; then
+        cat $local/.sync/conflits
+    else
+        echo "[INFO] Aucun conflit trouvé."
+    fi
+
+    rm $local/.sync/conflits
+}
+
+
+# Cette fonction permet de mettre à jour les dossiers
+#
+# 
+function sync {
+    if [ -d $PWD/.sync ]; then
+        local=$PWD
+        distant=$(cat $local/.sync/remote)
+        sync_path=$(get_lib sync)
+        conflit_path=$(get_lib conflit)
+        continuer=1
+        reponse="undefined"
+
+        # S'il n'y a pas de confltits dans les deux sens
+        while [ $continuer -eq 1 ]
+        do
+            $sync_path conflits $local > $local/.sync/conflits
+            $sync_path conflits $distant >> $local/.sync/conflits
+            conflits=$(cat $local/.sync/conflits | sort | uniq)
+
+            if [ $(echo $conflits | wc -c) -gt 1 ]; then
+                echo "[WARN] Des conflits ont été trouvés."
+                echo "---------------------------------------------------"
+                echo $conflits | sed 's/ /\n/g'
+                echo "---------------------------------------------------"
+                if [ "$reponse" == "undefined" ]; then
+                    echo "[INFO] Voulez-vous corriger les conflits ? (oui|non) "
+                    read -p "> " reponse
+                fi
+                if [ "$reponse" == "oui" ]; then
+                    echo "[INFO] Résolution des conflits en cours..."
+
+                    for conflit in $conflits
+                    do
+                        echo "==================================================="
+                        err_code=$(echo $conflit | cut -d">" -f1)
+                        file_name=$(echo $conflit | cut -d">" -f2)
+                        local_path=$local/$file_name
+                        distant_path=$distant/$file_name
+                        $(dirname $0)/lib/conflit $conflit_path $local_path $distant_path $err_code
+                    done
+                    echo "==================================================="
+
+                    echo "[INFO] Résolution des conflits terminée."
+                else
+                    echo "[ERR] Des conflits n'ont pas été corrigés."
+                    continuer=0
+                fi
+            else
+                echo "[INFO] Aucun conflit trouvé."
+                echo "[INFO] Synchronisation en cours..."
+
+                $sync_path sync $local $distant
+
+                echo "[INFO] Synchronisation terminée."
+                continuer=0
+            fi
+            rm $local/.sync/conflits
+        done
+    else
+        echo "[ERR] Ce dossier n'est pas synchronisé."
+    fi
+}
+
+
+# Fonction main du projet
+#
+# $1 commande à executer
+# $... arguments de la commande
+function main {
+    if [ $command == "init" ]; then
+        init $2
+        exit
+    elif [ $command == "diff" ]; then
+        diff
+        exit
+    elif [ $command == "conflits" ]; then
+        conflits
+        exit
+    elif [ $command == "sync" ]; then
+        sync
+        exit
+    fi
+    # On affiche l'aide ici
+    src=$(dirname $0)
+    cat $src/help.md
+}
+
+
 if [ $# -eq 0 ]; then
-    echo "Ce script attend un argument"
+    echo "Ce script attend un argument."
     command="help"
 else
     command=$1
 fi
-
-function main {
-    # Les Commandes
-    # - update
-    # - sync
-    # - help
-    if [ $command == "update" ]; then
-        echo "Update"
-    else
-        echo "Cette option n'existe pas."
-        # Afficher l'aide
-    fi
-}
-
-# On lance le script
-main
+main $@

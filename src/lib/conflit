@@ -1,0 +1,302 @@
+#!/bin/bash
+
+
+### $1 chemin absolu du fichier local créant conflit
+### $2 chemin absolu du fichier distant créant conflit
+### $3 cas du conflit
+# Différent cas : (le numéro indiquer correspond à la valeur de $3 dans le script principal)
+#     1 - Les deux fichiers ont été modifié depuis la dernière synchro
+#     2 - Un fichier à le même nom qu'un répertoire
+#     3 - Fichier modifié en local et supprimé en distant (ou l'inverse)
+#     4 - Deux Fichiers ont été créés avec le même nom
+
+
+# Cette fonction retourne le chemin relatif d'un module du projet
+#
+# $1 nom de la librairie à charger
+function get_lib {
+    echo "$(dirname $0)/$1"
+}
+
+
+# Déclaration d'un nouveau nom
+#
+# $1 chemin absolu du fichier
+# new_name variable globale
+function name_change {
+    chemin=$(dirname $1)
+    continuer=1
+    while [ $continuer -eq 1 ];
+    do
+        echo "Nouveau nom : "
+        read new_name
+        if [ -e $chemin/$new_name ];
+        then
+            echo "[ERR] Ce nom est déjà attribué à un autre fichier ou répertoire."
+        else
+            continuer=0
+        fi
+    done
+}
+
+
+# Ecrase le fichier se trouvant sur le pc par celui de la machine distante (cas 1)
+#
+# $1 chemin vers le fichier qui va être écrasé
+# $2 Type de l'ignore
+function confirm_squash {
+    name=$(basename $1)
+    continuer=1
+    while [ $continuer -eq 1 ];
+    do
+        # On affiche la demande et on lit le choix de l'utilisateur
+        read -p "[WARN] Etes-vous sûr de vouloir écraser le fichier $name ? (oui|non) " verification
+        if [ "$verification" == "oui" ];
+        then
+            $journal_path ignore $2 $1
+            continuer=0
+            resolu=1
+        elif [ "$verification" == "non" ];
+        then
+            continuer=0
+            resolu=0
+        else
+            echo "[ERR] Entrée invalide"
+        fi
+    done
+
+    return $resolu
+}
+
+
+# Sauvegarde des deux fichier en changeant le nom de l'un d'eux (cas 1)
+#
+# $1 chemin vers le fichier en conflit local
+function double_save {
+    new_name=""
+    name_change $1 # On renomme obligatoirement le fichier local
+    file_path_local=$(dirname $1) # chemin vers le fichier > /path/dir/sync
+    file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
+    
+    mv $file_path_local/$file_name $file_path_local/$new_name # changement de nom dans l'ordi
+    echo "[INFO] Changement de nom réalisé"
+
+    return 1
+}
+
+
+# Changement du nom du fichier ou repertoire (cas 2)
+#
+# $1 chemin vers le fichier ou répertoire dont on souhaite changer le nom
+# $2 Nouveau nom du fichier
+function file_name_change {
+    new_name=$2
+    file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
+    path_change_file=$(dirname $1) # chemin vers le fichier > /path/dir/sync
+
+    mv $path_change_file/$file_name $path_change_file/$new_name
+}
+
+
+# Traitement des cas 3 qui abouti soit à la sauvegarde du fichier soit à sa supression
+#
+# $1 chemin vers le fichier existant
+# $2 chemin vers le fichier qui a été supprimé
+function modif_ou_supp {
+    # Proposition de choix pour l'utilisateur
+    name_file=$(basename $1)
+    file_path_exist=$(dirname $1)
+
+    echo "Que souhaitez vous faire :"
+    echo " 1 - Garder et synchroniser le fichier modifié"
+    echo " 2 - Supprimer le fichier "
+    read -p "> " choix
+
+    if [ $choix -eq 1 ];
+    then
+        $journal_path ignore REM $2
+        resolu=1
+    elif [ $choix -eq "2" ];
+    then
+        continuer=1
+        while [ $continuer -eq 1 ];
+        do 
+            echo "[WARN] Etes-vous sûr de vouloir supprimer $name_file : (oui/non)"
+            read verification
+            if [ "$verification" == "oui" ];
+            then
+                $journal_path ignore MOD $1
+                resolu=1
+                continuer=0    
+            elif [ "$verification" == "non" ];
+            then
+                continuer=0
+                resolu=0
+            else
+                echo "[ERR] Entrée invalide"
+            fi 
+        done
+    fi
+
+    return $resolu
+}
+
+
+# Fonction gérant le cas 1
+#
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
+function cas_1 {
+    name_file=$(basename $1)
+    journal_path=$(get_lib journal)
+    md5_local=$(md5sum $1 | cut -d' ' -f1)
+    md5_distant=$(md5sum $2 | cut -d' ' -f1)
+
+    if [ "$md5_local" == "$md5_distant" ];
+    then
+        $journal_path ignore MOD $1
+        echo "[INFO] Il n'y pas de conflit, les fichiers sont identiques"
+        resolu=1
+    else
+        # Proposition de choix pour utilisateur
+        echo "[INFO] Les deux fichiers $name_file ont été créés ou modifiés depuis la dernière synchronisation."
+        echo "Que voulez-vous faire :"
+        echo " 1 - Donner un autre nom à la version présente dans ce dossier"
+        echo " 2 - Ecraser la version disponible dans le dossier distant"
+        echo " 3 - Ecraser le fichier disponible dans ce dossier"
+        read -p "> " choix
+        # Choix : on garde les deux donc on change un des noms
+        if [ $choix -eq 1 ];
+        then
+            $journal_path ignore REM $1
+            double_save $1 $2
+            resolu=$?
+        # On ecrase sur le pc distant
+        elif [ $choix -eq 2 ];
+        then
+            confirm_squash $2 MOD
+            resolu=$?
+        # On écrase sur le pc qui lance le sync
+        elif [ $choix -eq 3 ];
+        then
+            confirm_squash $1 MOD
+            resolu=$?
+        else
+            echo "[ERR]Choix non valide."
+            resolu=0
+        fi
+
+        echo "[INFO] Conflit corrigé"
+    fi
+
+    return $resolu
+}
+
+
+# Fonction gérant le cas 2
+#
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
+function cas_2 {
+    name_file=$(basename $1)
+    new_name=""
+
+    # Proposition de choix pour l'utilisateur
+    echo "${name_file} est à la fois un fichier et un dossier. Changer le nom du :"
+    echo " 1 - Fichier"
+    echo " 2 - Dossier"
+    read -p "> "choix
+    name_change $1
+
+    if [ -d $1 ];
+    then
+        dossier=$1
+        fichier=$2
+    else
+        dossier=$2
+        fichier=$1
+    fi
+
+    if [ "$choix" == "1" ];
+    then
+        file_name_change $fichier $new_name
+    elif [ "$choix" == "2" ];
+    then
+        file_name_change $dossier $new_name
+    else
+        echo "[ERR] Choix invalide!"
+    fi
+
+    return 1
+}
+
+
+# Fonction gérant le cas 3
+#
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
+function cas_3 {
+    file_name=$(basename $1)
+    if [ -e $1 ]; then
+        echo "$file_name se trouve sur le pc local et a été supprimé sur le pc distant"
+        modif_ou_supp $1 $2
+    else
+        echo "$file_name se trouve sur le pc distant et a été supprimé sur le pc local"
+        modif_ou_supp $2 $1
+    fi
+    resolu=$?
+    echo "[INFO] Conflit corrigé"
+
+    return $resolu
+}
+
+
+# Fonction gérant le cas 4
+#
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
+function cas_4 {
+    md5_local=$(md5sum $1 | cut -d' ' -f1)
+    md5_distant=$(md5sum $2 | cut -d' ' -f1)
+
+    if [ "$md5_local" == "$md5_distant" ];
+    then
+        $journal_path ignore ADD $1
+        echo "[INFO] Il n'y pas de conflit, les fichiers sont identiques"
+        resolu=1
+    else
+        # On revient au cas 1, on doit soit garder les deux en changeant un des nom soit en supprimer 1
+        conflit $1 $2 1
+        resolu=$?
+    fi
+
+    return $resolu
+}
+
+
+# Main script
+#
+# $1 chemin vers le fichier en conflit local
+# $2 chemin vers le fichier en conflit distant
+# $3 type de conflit
+function conflit {
+    resolu=0
+    numero_conflit=$3
+    while [ $resolu -eq 0 ];
+    do
+        if [ $numero_conflit -eq 1 ]; then
+            cas_1 $1 $2
+        elif [ $numero_conflit -eq 2 ]; then
+            cas_2 $1 $2
+        elif [ $numero_conflit -eq 3 ]; then
+            cas_3 $1 $2
+        elif [ $numero_conflit -eq 4 ]; then
+            cas_4 $1 $2
+        fi
+        resolu=$?
+    done
+    return 1
+}
+
+journal_path=$(get_lib journal)
+conflit $2 $3 $4

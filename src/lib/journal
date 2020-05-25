@@ -1,0 +1,162 @@
+#!/bin/bash
+
+
+# Cette fonction retourne le chemin relatif d'un module du projet
+#
+# $1 nom de la librairie à charger
+function get_lib {
+    echo "$(dirname $0)/$1"
+}
+
+
+# Cette fonction permet de faire un arbre du dossier récursivement
+#
+# $1 dossier à lister récursivement
+function browse {
+    for fichier in $(ls -A $1)
+    do
+        if [ $fichier != '.sync' ]; then
+            echo $1/$fichier
+            if [ -d $1/$fichier ]; then
+                browse $1/$fichier
+            fi
+        fi
+    done
+}
+
+
+# Retourne le chemin absolu du dossier synchronisé
+#
+# $1 chemin absolu d'un fichier synchronisé
+function get_root_dir {
+    root=$(dirname $1)
+    while [ ! -e $root/.sync ]
+    do
+        root=$(dirname $root)
+    done
+    echo $root
+}
+
+
+# Cette fonction permet de générer un journal
+#
+# $1 dossier synchronisé
+function journalisation {
+    dossier=$(readlink -f $1)
+    journal=""
+
+    # Faire un arbre de fichier
+    arborescence=$(browse $dossier | sed -e "s@^$dossier/@@g")
+    # Faire un journal
+    for fichier in $arborescence
+    do
+        if [ -f $dossier/$fichier ]; then
+            md5=$(md5sum $dossier/$fichier | cut -d" " -f1)
+        else
+            md5=""
+        fi
+        journal+="${fichier};${md5}"
+        journal+=$'\n'
+    done
+    echo "$journal"
+}
+
+
+# Cette fonction permet de générer le rapport de synchronisation en local uniquement
+# (par rapport à la dernière synchronisation)
+#
+# $1 dossier synchronisé
+function diff {
+    dossier=$1
+    if [ -d $dossier ]; then
+        if [ -d $dossier/.sync ]; then
+            journal_path=$dossier/.sync/journal
+            journal_temp_path=$dossier/.sync/journal_temp
+            journalisation $dossier > $journal_temp_path
+            diff_path=$dossier/.sync/diff
+            ignore_path=$dossier/.sync/ignore
+
+            if [ -e $diff_path ]; then
+                rm $diff_path
+            fi
+
+            # Nouveaux fichiers
+            for ligne in $(cat $journal_temp_path)
+            do
+                fichier=$(echo $ligne | cut -d';' -f1)
+                if [ "$(cat $journal_path | egrep "^${fichier};")" = "" ]; then
+                    echo "ADD#$fichier" >> $diff_path
+                fi
+            done
+            # Fichiers supprimés
+            for ligne in $(cat $journal_path)
+            do
+                fichier=$(echo $ligne | cut -d';' -f1)
+                if [ "$(cat $journal_temp_path | egrep "^${fichier};")" = "" ]; then
+                    echo "REM#$fichier" >> $diff_path
+                fi
+            done
+            # Fichiers modifiés
+            for ligne in $(cat $journal_temp_path)
+            do
+                fichier=$(echo $ligne | cut -d';' -f1)
+                md5=$(echo $ligne | cut -d';' -f2)
+                ligne_journal=$(cat $journal_path | egrep "^${fichier};")
+                md5_journal=$(echo $ligne_journal | cut -d';' -f2)
+                # On évite les nouveaux fichiers
+                if [ "$md5_journal" != "" ]; then
+                    if [ "$md5" != "$md5_journal" ]; then
+                        echo "MOD#$fichier" >> $diff_path
+                    fi
+                fi
+            done
+
+            # On va ignorer des différences pour éviter de créer de nouveaux conflits
+            if [[ -f $ignore_path && -f $diff_path ]]; then
+                cat $ignore_path >> $diff_path
+                cat $diff_path | sort | uniq -u > ${diff_path}_temp
+                rm $diff_path
+                mv ${diff_path}_temp $diff_path
+            elif [ ! -e $diff_path ]; then
+                touch $diff_path
+            fi
+
+            rm $journal_temp_path
+        else
+            echo "[ERR] Le dossier n'est pas synchronisé."
+        fi
+    else
+        echo "[ERR] Le dossier n'existe pas."
+    fi
+}
+
+# Cette fonction ajoute une entrée dans le journal
+#
+# $1 ADD|REM|MOD
+# $2 Chemin absolu vers le fichier à ignorer
+function ignore {
+    root=$(get_root_dir $2)
+    file_path=$(echo $2 | cut -c$(($(echo $root | wc -c) + 1))-)
+    if [ "$(cat $root/.sync/journal | grep $file_path; )" ]; then
+        echo "$1#${file_path}" >> $root/.sync/ignore
+    fi
+}
+
+
+if [ $# -gt 1 ]; then
+    commande=$1
+    if [ $commande = "get" ]; then
+        journalisation $2
+        exit
+    elif [ $commande = "diff" ]; then
+        diff $2
+        exit
+    elif [ $commande = "ignore" ]; then
+        ignore $2 $3
+        exit
+    else
+        echo "[ERR] Cette commande n'existe pas."
+    fi
+else
+    echo "[ERR] Il n'y a pas assez d'arguments transmis."
+fi

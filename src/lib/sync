@@ -1,0 +1,132 @@
+#!/bin/bash
+
+
+# Cette fonction retourne le chemin relatif d'un module du projet
+#
+# $1 nom de la librairie à charger
+function get_lib {
+    echo "$(dirname $0)/$1"
+}
+
+
+# Cette fonction détecte les conflits
+#
+# Attention elle va uniquement dans un sens (local -> distant)
+# et nécéssite un autre appel qui fera (distant -> local)
+# car certains conflits ne peuvent être détectés
+#
+# $1 dossier synchronisé
+function detecter_conflit {
+    local=$1
+    distant=$(cat $1/.sync/remote)
+    journal_path=$(get_lib journal)
+
+    # On génère les différences
+    diff_local_path="${local}/.sync/diff"
+    $journal_path diff $local
+    diff_distant_path="${distant}/.sync/diff"
+    $journal_path diff $distant
+
+    for diff in $(cat $diff_local_path)
+    do
+        status=$(echo $diff | cut -d"#" -f1)
+        fichier=$(echo $diff | cut -d"#" -f2)
+        # Les fichiers créés
+        if [ "$status" == "ADD" ]; then
+            # Si le fichier a été créé dans les deux dossiers
+            if [ "$(cat $diff_distant_path | egrep "^(ADD#${fichier})$")" != "" ]; then
+                # Si le fichier a le même nom qu'un dossier
+                if [[ (-f $local/$fichier && -d $distant/$fichier) || (-d $local/$fichier && -f $distant/$fichier) ]]; then
+                    echo "2>${fichier}"
+                # Si ce sont deux fichiers
+                else
+                    echo "4>${fichier}"
+                fi
+            fi
+        # Les fichiers supprimés
+        elif [ "$status" == "REM" ]; then
+            # Si le fichier a été supprimé et modifié dans les deux dossiers
+            if [ "$(cat $diff_distant_path | egrep "^(MOD#${fichier})$")" != "" ]; then
+                echo "3>${fichier}"
+            fi
+        # Les fichiers modifiés
+        elif [ "$status" == "MOD" ]; then
+            # Si les deux fichiers ont été édités
+            if [ "$(cat $diff_distant_path | egrep "^(MOD#${fichier})$")" != "" ]; then
+                echo "1>${fichier}"
+            fi
+        fi
+    done
+}
+
+
+# Cette fonction permet de synchroniser deux dossier qui
+# n'ont pas de conflits
+#
+# $1 dossier local
+# $2 dossier distant
+function sync {
+    local=$1
+    distant=$(cat $local/.sync/remote)
+    journal_path=$(get_lib journal)
+    $journal_path diff $local
+    $journal_path diff $distant
+
+    for diff in $(cat $local/.sync/diff)
+    do
+        type=$(echo $diff | cut -d"#" -f1)
+        fichier=$(echo $diff | cut -d"#" -f2)
+        if [ "$type" == "ADD" ]; then
+            if [ -d $local/$fichier ]; then
+                mkdir $distant/$fichier
+            else
+                cp -rpf $local/$fichier $distant/$fichier
+            fi
+        elif [ "$type" == "REM" ]; then
+            rm -rf $distant/$fichier
+        elif [ "$type" == "MOD" ]; then
+            cp -pf $local/$fichier $distant/$fichier
+        fi
+    done
+
+    for diff in $(cat $distant/.sync/diff)
+    do
+        type=$(echo $diff | cut -d"#" -f1)
+        fichier=$(echo $diff | cut -d"#" -f2)
+        if [ "$type" == "ADD" ]; then
+            if [ -d $distant/$fichier ]; then
+                mkdir $local/$fichier
+            else
+                cp -rpf $distant/$fichier $local/$fichier
+            fi
+        elif [ "$type" == "REM" ]; then
+            rm -rf $local/$fichier
+        elif [ "$type" == "MOD" ]; then
+            cp -pf $distant/$fichier $local/$fichier
+        fi
+    done
+
+    # On remet le dossier .sync dans un état synchronisé
+    $journal_path get $local > $local/.sync/journal
+    $journal_path get $local > $distant/.sync/journal
+    # On nettoie les fichiers temporaires
+    rm -f $local/.sync/diff
+    rm -f $distant/.sync/diff
+    rm -f $local/.sync/ignore
+    rm -f $distant/.sync/ignore
+}
+
+
+if [ $# -gt 1 ]; then
+    if [ $1 == 'conflits' ]; then
+        detecter_conflit $2
+        exit
+    elif [ $1 == 'sync' ]; then
+        sync $2
+        exit
+    else
+        echo "[ERR] Cette commande n'existe pas."
+    fi
+else
+    echo "[ERR] Veuillez transmettre au moins un argument."
+fi
