@@ -12,6 +12,11 @@ L'outil propose les commandes suivantes :
 Initialise la synchronisation de deux dossiers.
 Attention le dossier distant doit ne pas exister.
 
+### sync conflits
+
+Affiche les conflits du dossier local dans l'état actuel.
+A executer aussi dans un dossier synchronisé.
+
 ### sync diff
 
 Affiche les modifications du dossier local depuis la dernière
