@@ -43,7 +43,6 @@ function name_change {
 # Ecrase le fichier se trouvant sur le pc par celui de la machine distante (cas 1)
 #
 # $1 chemin vers le fichier qui va être écrasé
-# $2 Type de l'ignore
 function confirm_squash {
     name=$(basename $1)
     continuer=1
@@ -53,7 +52,8 @@ function confirm_squash {
         read -p "[WARN] Etes-vous sûr de vouloir écraser le fichier $name ? (oui|non) " verification
         if [ "$verification" == "oui" ];
         then
-            $journal_path ignore $2 $1
+            $journal_path ignore ADD $1
+            $journal_path ignore MOD $1
             continuer=0
             resolu=1
         elif [ "$verification" == "non" ];
@@ -78,7 +78,7 @@ function double_save {
     file_path_local=$(dirname $1) # chemin vers le fichier > /path/dir/sync
     file_name=$(basename $1) # nom du fichier:  le même pour les deux puisque conflit
     
-    mv $file_path_local/$file_name $file_path_local/$new_name # changement de nom dans l'ordi
+    mv $file_path_local/$file_name $file_path_local/$new_name # changement de nom du fichier
     echo "[INFO] Changement de nom réalisé"
 
     return 1
@@ -160,11 +160,16 @@ function cas_1 {
     else
         # Proposition de choix pour utilisateur
         echo "[INFO] Les deux fichiers $name_file ont été créés ou modifiés depuis la dernière synchronisation."
+        echo "[INFO] Voici les différences entre les deux fichiers (local --- distant) :"
+        echo "---------------------------------------------------"
+        diff $1 $2
+        echo "---------------------------------------------------"
         echo "Que voulez-vous faire :"
         echo " 1 - Donner un autre nom à la version présente dans ce dossier"
         echo " 2 - Ecraser la version disponible dans le dossier distant"
         echo " 3 - Ecraser le fichier disponible dans ce dossier"
         read -p "> " choix
+
         # Choix : on garde les deux donc on change un des noms
         if [ $choix -eq 1 ];
         then
@@ -174,12 +179,12 @@ function cas_1 {
         # On ecrase sur le pc distant
         elif [ $choix -eq 2 ];
         then
-            confirm_squash $2 MOD
+            confirm_squash $2
             resolu=$?
         # On écrase sur le pc qui lance le sync
         elif [ $choix -eq 3 ];
         then
-            confirm_squash $1 MOD
+            confirm_squash $1
             resolu=$?
         else
             echo "[ERR]Choix non valide."
@@ -299,4 +304,4 @@ function conflit {
 }
 
 journal_path=$(get_lib journal)
-conflit $2 $3 $4
+conflit $1 $2 $3

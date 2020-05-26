@@ -109,10 +109,13 @@ function diff {
                     if [ "$md5" != "$md5_journal" ]; then
                         echo "MOD#$fichier" >> $diff_path
                     fi
-                # Si un fichier est transformé en dossier
-                else
-                    echo "REM#$fichier" >> $diff_path
-                    echo "ADD#$fichier" >> $diff_path
+                # # Si un fichier est transformé en dossier
+                # sinon si le fichier est dans le journal
+                elif [ "$ligne_journal" != "" ]; then
+                    if [[ "$md5_journal" != "" && "$md5" = "" || "$md5_journal" = "" && "$md5" != "" ]]; then
+                        echo "REM#$fichier" >> $diff_path
+                        echo "ADD#$fichier" >> $diff_path
+                    fi
                 fi
             done
 
@@ -142,7 +145,7 @@ function diff {
 function ignore {
     root=$(get_root_dir $2)
     file_path=$(echo $2 | cut -c$(($(echo $root | wc -c) + 1))-)
-    if [ "$(cat $root/.sync/journal | grep $file_path; )" ]; then
+    if [[ "$(cat $root/.sync/journal | grep "$file_path;" )" != "" || -e $2 ]]; then
         echo "$1#${file_path}" >> $root/.sync/ignore
     fi
 }

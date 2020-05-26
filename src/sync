@@ -127,7 +127,7 @@ function sync {
                         file_name=$(echo $conflit | cut -d">" -f2)
                         local_path=$local/$file_name
                         distant_path=$distant/$file_name
-                        $(dirname $0)/lib/conflit $conflit_path $local_path $distant_path $err_code
+                        $conflit_path $local_path $distant_path $err_code
                     done
                     echo "==================================================="
 
