@@ -104,10 +104,15 @@ function diff {
                 ligne_journal=$(cat $journal_path | egrep "^${fichier};")
                 md5_journal=$(echo $ligne_journal | cut -d';' -f2)
                 # On évite les nouveaux fichiers
-                if [ "$md5_journal" != "" ]; then
+                # "$md5_journal" != "" && "$md5" != "" || "$md5_journal" = "" && "$md5" = ""
+                if [[ "$md5_journal" != "" && "$md5" != "" || "$md5_journal" = "" && "$md5" = "" ]]; then
                     if [ "$md5" != "$md5_journal" ]; then
                         echo "MOD#$fichier" >> $diff_path
                     fi
+                # Si un fichier est transformé en dossier
+                else
+                    echo "REM#$fichier" >> $diff_path
+                    echo "ADD#$fichier" >> $diff_path
                 fi
             done
 
