@@ -17,7 +17,9 @@ function init {
     if [ "$1" != "" ]; then
         local=$PWD
         distant=$(readlink -f $1)
+        # On vérifie que le dossier distant n'existe pas
         if ! [ -d $distant ]; then
+            # On vérifie que le dossier ne se trouve pas dans le dossier actuel
             if [ "$(echo "${distant}/" | egrep "^(${local}/)")" = "" ]; then
                 if ! [ -d $local/.sync ]; then
                     echo "[INFO] Initialisation en cours..."
@@ -25,11 +27,11 @@ function init {
                     # Copie des fichiers
                     cp -pr $local $distant
                     # On créé un .sync dans les deux dossies
-                    #   Génère le journal dans les deux dossiers
                     mkdir $local/.sync
+                    # Génère le journal dans les deux dossiers
                     journal_path=$(get_lib journal)
                     journal=$($journal_path get $local > $local/.sync/journal)
-
+                    # On copie les fichiers initiaux
                     cp -r $local/.sync $distant/.sync
 
                     #   Génère le fichier remote dans les deux dossiers

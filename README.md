@@ -83,7 +83,8 @@ doivent être données en argument lors de l'appel du script.
 
 ### Commandes disponibles
 
-Les commandes suivantes sont disponible sur le script principal :
+Les commandes suivantes sont disponible sur le script principal (attention,
+les commandes doivent être executées dans un dossier synchronisé):
 
 * init
   * Initialise le dossier en créant un miroir

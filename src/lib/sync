@@ -34,7 +34,7 @@ function detecter_conflit {
         # Les fichiers créés
         if [ "$status" == "ADD" ]; then
             # Si le fichier a été créé dans les deux dossiers
-            if [ "$(cat $diff_distant_path | egrep "^(ADD#${fichier})$")" != "" ]; then
+            if [ "$(egrep "^(ADD#${fichier})$" "${diff_distant_path}")" != "" ]; then
                 # Si le fichier a le même nom qu'un dossier
                 if [[ (-f $local/$fichier && -d $distant/$fichier) || (-d $local/$fichier && -f $distant/$fichier) ]]; then
                     echo "2>${fichier}"
@@ -46,13 +46,13 @@ function detecter_conflit {
         # Les fichiers supprimés
         elif [ "$status" == "REM" ]; then
             # Si le fichier a été supprimé et modifié dans les deux dossiers
-            if [ "$(cat $diff_distant_path | egrep "^(MOD#${fichier})$")" != "" ]; then
+            if [ "$(egrep "^(MOD#${fichier})$" $diff_distant_path)" != "" ]; then
                 echo "3>${fichier}"
             fi
         # Les fichiers modifiés
         elif [ "$status" == "MOD" ]; then
             # Si les deux fichiers ont été édités
-            if [ "$(cat $diff_distant_path | egrep "^(MOD#${fichier})$")" != "" ]; then
+            if [ "$(egrep "^(MOD#${fichier})$" $diff_distant_path)" != "" ]; then
                 echo "1>${fichier}"
             fi
         fi

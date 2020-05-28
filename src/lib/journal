@@ -84,7 +84,7 @@ function diff {
             for ligne in $(cat $journal_temp_path)
             do
                 fichier=$(echo $ligne | cut -d';' -f1)
-                if [ "$(cat $journal_path | egrep "^${fichier};")" = "" ]; then
+                if [ "$(egrep "^${fichier};" ${journal_path})" = "" ]; then
                     echo "ADD#$fichier" >> $diff_path
                 fi
             done
@@ -92,7 +92,7 @@ function diff {
             for ligne in $(cat $journal_path)
             do
                 fichier=$(echo $ligne | cut -d';' -f1)
-                if [ "$(cat $journal_temp_path | egrep "^${fichier};")" = "" ]; then
+                if [ "$(egrep "^${fichier};" $journal_temp_path)" = "" ]; then
                     echo "REM#$fichier" >> $diff_path
                 fi
             done
@@ -101,7 +101,7 @@ function diff {
             do
                 fichier=$(echo $ligne | cut -d';' -f1)
                 md5=$(echo $ligne | cut -d';' -f2)
-                ligne_journal=$(cat $journal_path | egrep "^${fichier};")
+                ligne_journal=$(egrep "^${fichier};" $journal_path)
                 md5_journal=$(echo $ligne_journal | cut -d';' -f2)
                 # On évite les nouveaux fichiers
                 # "$md5_journal" != "" && "$md5" != "" || "$md5_journal" = "" && "$md5" = ""
@@ -145,7 +145,7 @@ function diff {
 function ignore {
     root=$(get_root_dir $2)
     file_path=$(echo $2 | cut -c$(($(echo $root | wc -c) + 1))-)
-    if [[ "$(cat $root/.sync/journal | grep "$file_path;" )" != "" || -e $2 ]]; then
+    if [[ "$(grep "$file_path;" "${root}/.sync/journal")" != "" || -e $2 ]]; then
         echo "$1#${file_path}" >> $root/.sync/ignore
     fi
 }

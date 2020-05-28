@@ -210,7 +210,7 @@ function cas_2 {
     echo "${name_file} est à la fois un fichier et un dossier. Changer le nom du :"
     echo " 1 - Fichier"
     echo " 2 - Dossier"
-    read -p "> "choix
+    read -p "> " choix
     name_change $1
 
     if [ -d $1 ];
